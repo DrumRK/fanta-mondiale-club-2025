@@ -1,4 +1,4 @@
-// components/Risultati.jsx - NUOVO FILE
+// components/Risultati.jsx - FIXED TIMEZONE VERSION
 import React, { useEffect, useState } from "react";
 import { apiService } from "../services/api";
 
@@ -24,6 +24,28 @@ export default function Risultati() {
 
     fetchRisultati();
   }, []);
+
+  // 🕐 FIX TIMEZONE FUNCTIONS
+  const formatTimeWithCorrectTimezone = (dateString) => {
+    const date = new Date(dateString);
+    const correctedDate = new Date(date.getTime() - (2 * 60 * 60 * 1000));
+    
+    return correctedDate.toLocaleTimeString("it-IT", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const formatDateWithCorrectTimezone = (dateString) => {
+    const date = new Date(dateString);
+    const correctedDate = new Date(date.getTime() - (2 * 60 * 60 * 1000));
+    
+    return correctedDate.toLocaleDateString("it-IT", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+  };
 
   if (loading) {
     return (
@@ -51,13 +73,9 @@ export default function Risultati() {
     );
   }
 
-  // Raggruppa partite per data
+  // Raggruppa partite per data con timezone corretta
   const partitePerGiorno = partite.reduce((acc, match) => {
-    const giorno = new Date(match.date).toLocaleDateString("it-IT", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-    });
+    const giorno = formatDateWithCorrectTimezone(match.date);
     if (!acc[giorno]) acc[giorno] = [];
     acc[giorno].push(match);
     return acc;
@@ -85,6 +103,7 @@ export default function Risultati() {
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold text-white mb-2">🏆 Risultati Finali</h2>
         <p className="text-gray-400">Tutte le partite completate del torneo</p>
+        <div className="text-xs text-yellow-400 mt-2">🕐 Orari in timezone italiana (Europe/Rome)</div>
       </div>
 
       {Object.keys(partitePerGiorno).length === 0 ? (
@@ -155,14 +174,11 @@ export default function Risultati() {
                         key={match.id || index} 
                         className="bg-gray-700/50 border border-gray-600/50 rounded-xl p-6 hover:bg-gray-600/50 transition-all duration-200 hover:scale-[1.02] group"
                       >
-                        {/* Header con orario */}
+                        {/* Header con orario - FIXED */}
                         <div className="text-center mb-6">
                           <div className="inline-flex items-center px-3 py-1 bg-green-500/20 rounded-full border border-green-500/30">
                             <span className="text-sm font-medium text-green-300">
-                              🏁 {new Date(match.date).toLocaleTimeString("it-IT", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })} - Completata
+                              🏁 {formatTimeWithCorrectTimezone(match.date)} - Completata
                             </span>
                           </div>
                         </div>

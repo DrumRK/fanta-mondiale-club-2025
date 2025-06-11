@@ -24,6 +24,28 @@ export default function ProssimiIncontri() {
     fetchIncontri();
   }, []);
 
+  // 🕐 FIX TIMEZONE FUNCTIONS
+  const formatTimeWithCorrectTimezone = (dateString) => {
+    const date = new Date(dateString);
+    const correctedDate = new Date(date.getTime() - (2 * 60 * 60 * 1000));
+    
+    return correctedDate.toLocaleTimeString("it-IT", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const formatDateWithCorrectTimezone = (dateString) => {
+    const date = new Date(dateString);
+    const correctedDate = new Date(date.getTime() - (2 * 60 * 60 * 1000));
+    
+    return correctedDate.toLocaleDateString("it-IT", {
+      weekday: "long",
+      day: "numeric",
+      month: "long"
+    });
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -52,11 +74,7 @@ export default function ProssimiIncontri() {
   }
 
   const partitePerGiorno = partite.reduce((acc, match) => {
-    const giorno = new Date(match.data).toLocaleDateString("it-IT", {
-      weekday: "long",
-      day: "numeric",
-      month: "long"
-    });
+    const giorno = formatDateWithCorrectTimezone(match.data);
     if (!acc[giorno]) acc[giorno] = [];
     acc[giorno].push(match);
     return acc;
@@ -73,6 +91,7 @@ export default function ProssimiIncontri() {
           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
           <p className="text-gray-400">Aggiornamenti in tempo reale</p>
         </div>
+        <div className="text-xs text-yellow-400 mt-2">🕐 Orari in timezone italiana (Europe/Rome)</div>
       </div>
 
       {Object.keys(partitePerGiorno).length === 0 ? (
@@ -137,14 +156,11 @@ export default function ProssimiIncontri() {
                         </div>
                       </div>
 
-                      {/* Match Time */}
+                      {/* Match Time - FIXED */}
                       <div className="text-center mb-6">
                         <div className="inline-flex items-center px-4 py-2 bg-red-500/20 rounded-full border border-red-500/30">
                           <span className="text-lg font-bold text-red-300">
-                            🕐 {new Date(match.data).toLocaleTimeString("it-IT", {
-                              hour: "2-digit",
-                              minute: "2-digit"
-                            })}
+                            🕐 {formatTimeWithCorrectTimezone(match.data)}
                           </span>
                         </div>
                       </div>
