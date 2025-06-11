@@ -51,30 +51,52 @@ export default function ProssimiIncontri() {
     fetchMatches();
   }, []);
 
+  // Raggruppa le partite per giorno
+  const partitePerGiorno = partite.reduce((acc, match) => {
+    const giorno = new Date(match.fixture.date).toLocaleDateString("it-IT", {
+      weekday: "long",
+      day: "numeric",
+      month: "long"
+    });
+    if (!acc[giorno]) acc[giorno] = [];
+    acc[giorno].push(match);
+    return acc;
+  }, {});
+
   return (
-    <div className="bg-white shadow rounded-xl p-4">
-      <h2 className="text-xl font-semibold mb-3">Prossimi Incontri di Oggi</h2>
-      {partite.length === 0 ? (
-        <p>Nessuna partita in programma oggi.</p>
+    <div className="p-4">
+      <h2 className="text-2xl font-bold mb-6 text-center">Prossimi Incontri</h2>
+      {Object.keys(partitePerGiorno).length === 0 ? (
+        <p className="text-center">Nessuna partita in programma oggi.</p>
       ) : (
-        <ul className="space-y-3">
-          {partite.map((match) => (
-            <li key={match.fixture.id} className="border p-3 rounded">
-              <div className="text-sm text-gray-500 mb-1">
-                {new Date(match.fixture.date).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
-              </div>
-              <div className="flex justify-between">
-                <span>
-                  <strong>{match.teams.home.name}</strong> ({trovaProprietario(match.teams.home.name)})
-                </span>
-                <span className="mx-2">vs</span>
-                <span>
-                  <strong>{match.teams.away.name}</strong> ({trovaProprietario(match.teams.away.name)})
-                </span>
-              </div>
-            </li>
-          ))}
-        </ul>
+        Object.entries(partitePerGiorno).map(([giorno, matches]) => (
+          <div key={giorno} className="bg-white shadow-lg rounded-xl p-5 mb-6 max-w-2xl mx-auto">
+            <h3 className="text-xl font-semibold mb-4 border-b pb-2 text-center">{giorno}</h3>
+            <ul className="space-y-3">
+              {matches.map(match => (
+                <li key={match.fixture.id} className="border p-3 rounded-lg bg-gray-50">
+                  <div className="text-sm text-gray-600 mb-1 text-center">
+                    {new Date(match.fixture.date).toLocaleTimeString("it-IT", {
+                      hour: "2-digit",
+                      minute: "2-digit"
+                    })}
+                  </div>
+                  <div className="flex justify-between items-center text-center">
+                    <span className="flex-1">
+                      <strong>{match.teams.home.name}</strong><br />
+                      <small>({trovaProprietario(match.teams.home.name)})</small>
+                    </span>
+                    <span className="mx-3 font-medium">vs</span>
+                    <span className="flex-1">
+                      <strong>{match.teams.away.name}</strong><br />
+                      <small>({trovaProprietario(match.teams.away.name)})</small>
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
       )}
     </div>
   );
