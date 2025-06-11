@@ -34,6 +34,62 @@ export class MatchService {
     }
   }
 
+// backend/services/database/matchService.js - VERSIONE CORRETTA
+// Aggiungi questa funzione alla tua classe MatchService esistente
+
+// Get finished matches with results
+static async getFinishedMatches() {
+  try {
+    const result = await query(`
+      SELECT DISTINCT
+        m.id,
+        m.external_id,
+        m.match_date as date,
+        ht.name as home,
+        at.name as away,
+        COALESCE(
+          (SELECT p.name FROM player_teams pt JOIN players p ON pt.player_id = p.id WHERE pt.team_id = ht.id LIMIT 1), 
+          'N/A'
+        ) as homeowner,
+        COALESCE(
+          (SELECT p.name FROM player_teams pt JOIN players p ON pt.player_id = p.id WHERE pt.team_id = at.id LIMIT 1), 
+          'N/A'
+        ) as awayowner,
+        m.home_goals,
+        m.away_goals,
+        m.status,
+        m.is_knockout,
+        wt.name as winner_team,
+        COALESCE(
+          (SELECT p.name FROM player_teams pt JOIN players p ON pt.player_id = p.id WHERE pt.team_id = wt.id LIMIT 1), 
+          'N/A'
+        ) as winner_owner,
+        CASE 
+          WHEN m.home_goals > m.away_goals THEN 'home'
+          WHEN m.away_goals > m.home_goals THEN 'away'
+          WHEN m.home_goals = m.away_goals AND m.winner_team_id = m.home_team_id THEN 'home'
+          WHEN m.home_goals = m.away_goals AND m.winner_team_id = m.away_team_id THEN 'away'
+          ELSE 'draw'
+        END as result_type
+      FROM matches m
+      JOIN teams ht ON m.home_team_id = ht.id
+      JOIN teams at ON m.away_team_id = at.id
+      LEFT JOIN teams wt ON m.winner_team_id = wt.id
+      WHERE m.status = 'finished'
+        AND m.home_goals IS NOT NULL 
+        AND m.away_goals IS NOT NULL
+      ORDER BY m.match_date DESC
+      LIMIT 50
+    `);
+    
+    console.log(`🏆 Retrieved ${result.rows.length} finished matches`);
+    return result.rows;
+  } catch (error) {
+    console.error('❌ Error getting finished matches:', error);
+    throw error;
+  }
+}
+
   // Get today's matches
   static async getTodaysMatches() {
     try {

@@ -4,6 +4,7 @@ import Calendario from "./components/Calendario";
 import ProssimiIncontri from "./components/ProssimiIncontri";
 import Squadre from "./components/Squadre";
 import Regolamento from "./components/Regolamento";
+import Risultati from "./components/Risultati"; // 🎯 NUOVO IMPORT!
 
 export default function FantaMondialeApp() {
   const [activeTab, setActiveTab] = useState("classifica");
@@ -14,6 +15,7 @@ export default function FantaMondialeApp() {
     { id: "classifica", label: "Classifica", icon: "🏆" },
     { id: "calendario", label: "Calendario", icon: "📅" },
     { id: "prossimi", label: "Live", icon: "⚡" },
+    { id: "risultati", label: "Risultati", icon: "🎯" }, // 🎯 NUOVA TAB!
     { id: "squadre", label: "Squadre", icon: "👥" },
     { id: "regolamento", label: "Regole", icon: "📋" }
   ];
@@ -23,6 +25,7 @@ export default function FantaMondialeApp() {
       case "classifica": return <Classifica />;
       case "calendario": return <Calendario />;
       case "prossimi": return <ProssimiIncontri />;
+      case "risultati": return <Risultati />; // 🎯 NUOVO CASO!
       case "squadre": return <Squadre />;
       case "regolamento": return <Regolamento />;
       default: return <Classifica />;

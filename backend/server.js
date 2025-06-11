@@ -47,6 +47,7 @@ import incontriRouter from "./routes/incontri.js";
 import calendarioRouter from "./routes/calendario.js";
 import squadreRouter from "./routes/squadre.js";
 import adminRouter from "./routes/admin.js";
+import risultatiRouter from "./routes/risultati.js";
 
 // Import services
 import { Scheduler } from "./services/scheduler.js";
@@ -94,6 +95,7 @@ app.use("/api/incontri", incontriRouter);
 app.use("/api/calendario", calendarioRouter);
 app.use("/api/squadre", squadreRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/risultati", risultatiRouter); // 🎯 NUOVA ROUTE AGGIUNTA!
 
 // Health check
 app.get("/api/health", async (req, res) => {
@@ -196,6 +198,9 @@ async function startServer() {
     console.log(`   - GET  /api/health`);
     console.log(`   - GET  /api/classifica`);
     console.log(`   - GET  /api/squadre`);
+    console.log(`   - GET  /api/calendario`);
+    console.log(`   - GET  /api/incontri`);
+    console.log(`   - GET  /api/risultati`); // 🎯 NUOVO ENDPOINT!
     console.log(`   - GET  /api/admin/status`);
     console.log(`   - POST /api/admin/update-matches`);
     console.log(`\n🔧 Test health: http://localhost:${PORT}/api/health\n`);
