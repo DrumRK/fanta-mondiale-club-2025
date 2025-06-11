@@ -156,7 +156,7 @@ export default function ProssimiIncontri() {
                             {match.home}
                           </div>
                           <div className="text-sm text-blue-400 font-medium mt-2 px-3 py-1 bg-blue-500/20 rounded-full inline-block">
-                            {match.homeOwner}
+                            {match.homeowner}
                           </div>
                         </div>
                         
@@ -171,7 +171,7 @@ export default function ProssimiIncontri() {
                             {match.away}
                           </div>
                           <div className="text-sm text-pink-400 font-medium mt-2 px-3 py-1 bg-pink-500/20 rounded-full inline-block">
-                            {match.awayOwner}
+                            {match.awayowner}
                           </div>
                         </div>
                       </div>
