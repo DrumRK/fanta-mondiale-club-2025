@@ -1,6 +1,11 @@
 import axios from "axios";
 import { RAPID_API_KEY, RAPID_API_HOST } from "../config.js";
-import giocatori from "../data/giocatori.js";
+import { giocatori } from "../data/giocatori.js";
+
+// Add these debug lines
+console.log("🔧 calcoloClassifica - API Key loaded:", RAPID_API_KEY ? "✅ Yes" : "❌ No");
+console.log("🔧 calcoloClassifica - API Key first 10:", RAPID_API_KEY ? RAPID_API_KEY.substring(0, 10) + "..." : "undefined");
+console.log("🔧 calcoloClassifica - Full process.env.RAPID_API_KEY:", process.env.RAPID_API_KEY ? process.env.RAPID_API_KEY.substring(0, 10) + "..." : "undefined");
 
 const trovaProprietario = (teamName) => {
   for (const giocatore of giocatori) {
