@@ -1,70 +1,74 @@
-import axios from "axios";
-import { giocatori } from "../data/giocatori.js";
+// backend/services/calcoloClassifica.js
+import giocatori from "../data/giocatori.js";
 
-const trovaProprietario = (team) => {
-  for (const g of giocatori) {
-    if (g.teams.includes(team)) return g.name;
+const trovaProprietario = (teamName) => {
+  for (const giocatore of giocatori) {
+    if (giocatore.teams.includes(teamName)) {
+      return giocatore.name;
+    }
   }
-  return "--";
+  return null;
 };
 
-export async function calcolaClassifica() {
-  const { data } = await axios.get("https://api-football-v1.p.rapidapi.com/v3/fixtures", {
-    params: { league: 15, season: 2025 },
-    headers: {
-      "X-RapidAPI-Key": process.env.API_KEY,
-      "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com",
-    },
-  });
+export const calcolaClassifica = (matches) => {
+  const punteggi = {};
+  const partiteGiocate = {};
+  const pareggi = {};
+  const sconfitte = {};
 
-  const matches = data.response.filter(m => m.fixture.status.short === "FT");
-
-  const punteggi = {}, partite = {}, pareggi = {}, sconfitte = {};
-
-  giocatori.forEach(g => {
+  giocatori.forEach((g) => {
     punteggi[g.name] = 0;
-    partite[g.name] = 0;
+    partiteGiocate[g.name] = 0;
     pareggi[g.name] = 0;
     sconfitte[g.name] = 0;
   });
 
-  for (const match of matches) {
-    const home = match.teams.home.name;
-    const away = match.teams.away.name;
-    const gHome = match.goals.home;
-    const gAway = match.goals.away;
-    const status = match.score.penalty ? "KO" : "GRUPPI";
+  matches.forEach((match) => {
+    const homeTeam = match.teams.home.name;
+    const awayTeam = match.teams.away.name;
+    const homeGoals = match.goals.home;
+    const awayGoals = match.goals.away;
+    const faseKO = match.score.penalty !== null;
 
-    const pHome = trovaProprietario(home);
-    const pAway = trovaProprietario(away);
+    const homeOwner = trovaProprietario(homeTeam);
+    const awayOwner = trovaProprietario(awayTeam);
 
-    if (pHome !== "--") partite[pHome]++;
-    if (pAway !== "--") partite[pAway]++;
+    if (homeOwner) partiteGiocate[homeOwner]++;
+    if (awayOwner) partiteGiocate[awayOwner]++;
 
-    if (gHome > gAway) {
-      punteggi[pHome] += 3;
-      sconfitte[pAway]++;
-    } else if (gHome < gAway) {
-      punteggi[pAway] += 3;
-      sconfitte[pHome]++;
+    if (homeGoals > awayGoals) {
+      if (homeOwner) punteggi[homeOwner] += 3;
+      if (awayOwner) sconfitte[awayOwner]++;
+    } else if (homeGoals < awayGoals) {
+      if (awayOwner) punteggi[awayOwner] += 3;
+      if (homeOwner) sconfitte[homeOwner]++;
     } else {
-      punteggi[pHome] += 1;
-      punteggi[pAway] += 1;
-      pareggi[pHome]++;
-      pareggi[pAway]++;
-      const vincente = match.teams.winner?.name;
-      const pWin = trovaProprietario(vincente);
-      if (status === "KO" && pWin !== "--") {
-        punteggi[pWin] += 1;
+      // Pareggio nei 90'
+      if (homeOwner) {
+        punteggi[homeOwner] += 1;
+        pareggi[homeOwner]++;
+      }
+      if (awayOwner) {
+        punteggi[awayOwner] += 1;
+        pareggi[awayOwner]++;
+      }
+
+      // +1 punto extra a chi ha vinto nel KO
+      const winnerTeam = match.teams.winner?.name;
+      const winnerOwner = trovaProprietario(winnerTeam);
+      if (faseKO && winnerOwner) {
+        punteggi[winnerOwner] += 1;
       }
     }
-  }
+  });
 
-  return Object.entries(punteggi).map(([name, punti]) => ({
+  const classificaFinale = Object.entries(punteggi).map(([name, punti]) => ({
     name,
     punti,
-    partite: partite[name],
+    partite: partiteGiocate[name],
     pareggi: pareggi[name],
     sconfitte: sconfitte[name],
-  })).sort((a, b) => b.punti - a.punti);
-}
+  }));
+
+  return classificaFinale.sort((a, b) => b.punti - a.punti);
+};
