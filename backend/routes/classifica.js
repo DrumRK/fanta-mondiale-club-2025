@@ -1,30 +1,56 @@
-// backend/routes/classifica.js
 import express from "express";
-import axios from "axios";
-import { calcolaClassifica } from "../services/calcoloClassifica.js";
+import { LeaderboardService } from "../services/database/leaderboardService.js";
 
 const router = express.Router();
 
 router.get("/", async (req, res) => {
   try {
-    const response = await axios.get("https://api-football-v1.p.rapidapi.com/v3/fixtures", {
-      params: { league: 15, season: 2025 },
-      headers: {
-        "X-RapidAPI-Key": "ea94cfdf4bmshf69bdb973c12389p1c0c6fjsn29f022cc6533",
-        "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com",
-      },
+    console.log('📊 Fetching leaderboard from database...');
+    
+    // Get leaderboard from database (super fast!)
+    const classifica = await LeaderboardService.getLeaderboard();
+    
+    // Get last update time
+    const lastUpdate = await LeaderboardService.getLastUpdateTime();
+    
+    console.log(`✅ Retrieved leaderboard with ${classifica.length} players`);
+    
+    res.json({
+      data: classifica,
+      lastUpdate: lastUpdate,
+      source: 'database'
     });
-
-    const matches = response.data.response.filter(
-      (match) => match.fixture.status.short === "FT"
-    );
-
-    const classifica = calcolaClassifica(matches);
-
-    res.json(classifica);
+    
   } catch (error) {
-    console.error("Errore nel recupero dei dati per la classifica:", error.message);
-    res.status(500).json({ error: "Errore durante il calcolo della classifica." });
+    console.error("❌ Error getting leaderboard:", error.message);
+    res.status(500).json({ 
+      error: "Errore durante il recupero della classifica.",
+      details: error.message 
+    });
+  }
+});
+
+// Endpoint to force recalculation (for testing)
+router.post("/recalculate", async (req, res) => {
+  try {
+    console.log('🔄 Manually recalculating leaderboard...');
+    
+    const classifica = await LeaderboardService.recalculateLeaderboard();
+    
+    console.log('✅ Leaderboard recalculated successfully');
+    
+    res.json({
+      message: "Classifica ricalcolata con successo",
+      data: classifica,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error("❌ Error recalculating leaderboard:", error.message);
+    res.status(500).json({ 
+      error: "Errore durante il ricalcolo della classifica.",
+      details: error.message 
+    });
   }
 });
 
