@@ -1,4 +1,5 @@
-// backend/services/calcoloClassifica.js
+import axios from "axios";
+import { RAPID_API_KEY, RAPID_API_HOST } from "../config.js";
 import giocatori from "../data/giocatori.js";
 
 const trovaProprietario = (teamName) => {
@@ -10,7 +11,7 @@ const trovaProprietario = (teamName) => {
   return null;
 };
 
-export const calcolaClassifica = (matches) => {
+export const calcolaClassifica = async () => {
   const punteggi = {};
   const partiteGiocate = {};
   const pareggi = {};
@@ -23,52 +24,70 @@ export const calcolaClassifica = (matches) => {
     sconfitte[g.name] = 0;
   });
 
-  matches.forEach((match) => {
-    const homeTeam = match.teams.home.name;
-    const awayTeam = match.teams.away.name;
-    const homeGoals = match.goals.home;
-    const awayGoals = match.goals.away;
-    const faseKO = match.score.penalty !== null;
+  try {
+    const response = await axios.get("https://api-football-v1.p.rapidapi.com/v3/fixtures", {
+      params: { league: 15, season: 2025 },
+      headers: {
+        "X-RapidAPI-Key": RAPID_API_KEY,
+        "X-RapidAPI-Host": RAPID_API_HOST,
+      },
+    });
 
-    const homeOwner = trovaProprietario(homeTeam);
-    const awayOwner = trovaProprietario(awayTeam);
+    const matches = response.data.response.filter(match => match.fixture.status.short === "FT");
 
-    if (homeOwner) partiteGiocate[homeOwner]++;
-    if (awayOwner) partiteGiocate[awayOwner]++;
+    matches.forEach(match => {
+      const homeTeam = match.teams.home.name;
+      const awayTeam = match.teams.away.name;
+      const homeGoals = match.goals.home;
+      const awayGoals = match.goals.away;
+      const winner = match.teams.winner?.name || null;
+      const status = match.score.penalty ? "KO" : "GRUPPI";
 
-    if (homeGoals > awayGoals) {
-      if (homeOwner) punteggi[homeOwner] += 3;
-      if (awayOwner) sconfitte[awayOwner]++;
-    } else if (homeGoals < awayGoals) {
-      if (awayOwner) punteggi[awayOwner] += 3;
-      if (homeOwner) sconfitte[homeOwner]++;
-    } else {
-      // Pareggio nei 90'
-      if (homeOwner) {
-        punteggi[homeOwner] += 1;
-        pareggi[homeOwner]++;
-      }
-      if (awayOwner) {
-        punteggi[awayOwner] += 1;
-        pareggi[awayOwner]++;
+      const homeOwner = trovaProprietario(homeTeam);
+      const awayOwner = trovaProprietario(awayTeam);
+
+      if (!homeOwner && !awayOwner) {
+        console.warn(`⚠️ Nessun proprietario trovato per ${homeTeam} vs ${awayTeam}`);
+        return;
       }
 
-      // +1 punto extra a chi ha vinto nel KO
-      const winnerTeam = match.teams.winner?.name;
-      const winnerOwner = trovaProprietario(winnerTeam);
-      if (faseKO && winnerOwner) {
-        punteggi[winnerOwner] += 1;
+      if (homeOwner) partiteGiocate[homeOwner]++;
+      if (awayOwner) partiteGiocate[awayOwner]++;
+
+      if (homeGoals > awayGoals) {
+        if (homeOwner) punteggi[homeOwner] += 3;
+        if (awayOwner) sconfitte[awayOwner]++;
+      } else if (homeGoals < awayGoals) {
+        if (awayOwner) punteggi[awayOwner] += 3;
+        if (homeOwner) sconfitte[homeOwner]++;
+      } else {
+        if (homeOwner) {
+          punteggi[homeOwner] += 1;
+          pareggi[homeOwner]++;
+        }
+        if (awayOwner) {
+          punteggi[awayOwner] += 1;
+          pareggi[awayOwner]++;
+        }
+
+        if (status === "KO" && winner) {
+          const winnerOwner = trovaProprietario(winner);
+          if (winnerOwner) {
+            punteggi[winnerOwner] += 1;
+          }
+        }
       }
-    }
-  });
+    });
 
-  const classificaFinale = Object.entries(punteggi).map(([name, punti]) => ({
-    name,
-    punti,
-    partite: partiteGiocate[name],
-    pareggi: pareggi[name],
-    sconfitte: sconfitte[name],
-  }));
-
-  return classificaFinale.sort((a, b) => b.punti - a.punti);
+    return Object.entries(punteggi).map(([name, punti]) => ({
+      name,
+      punti,
+      partite: partiteGiocate[name],
+      pareggi: pareggi[name],
+      sconfitte: sconfitte[name],
+    })).sort((a, b) => b.punti - a.punti);
+  } catch (error) {
+    console.error("❌ Errore durante il calcolo della classifica:", error);
+    return [];
+  }
 };

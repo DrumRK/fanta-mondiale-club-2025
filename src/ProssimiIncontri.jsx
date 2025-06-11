@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { RAPID_API } from "./config"; // ✅ Centralizzazione configurazione
 
 const giocatori = [
   { name: "ENZO", teams: ["Paris Saint Germain", "Borussia Dortmund", "Wydad AC", "Urawa"] },
@@ -9,15 +10,14 @@ const giocatori = [
   { name: "DANI & CIRO", teams: ["Flamengo", "Benfica", "Al-Hilal Saudi FC", "Al Ain"] },
   { name: "MARIO", teams: ["River Plate", "FC Porto", "Botafogo", "Mamelodi Sundowns"] },
   { name: "UMBERTO", teams: ["Bayern München", "Atletico Madrid", "Ulsan Hyundai FC", "ES Tunis"] },
-  { name: "BENNY", teams: [, "Real Madrid", "Juventus", "Al Ahly", "Seattle Sounders"] }
+  { name: "BENNY", teams: ["Real Madrid", "Juventus", "Al Ahly", "Seattle Sounders"] } // ✅ Fix qui
 ];
 
 const trovaProprietario = (teamName) => {
   for (const giocatore of giocatori) {
-    if (giocatore.teams.includes(teamName)) {
-      return giocatore.name;
-    }
+    if (giocatore.teams.includes(teamName)) return giocatore.name;
   }
+  console.warn(`❗ Nessun proprietario trovato per: ${teamName}`);
   return "--";
 };
 
@@ -27,31 +27,26 @@ export default function ProssimiIncontri() {
   useEffect(() => {
     const fetchMatches = async () => {
       try {
-        const response = await axios.get("https://api-football-v1.p.rapidapi.com/v3/fixtures", {
+        const response = await axios.get(RAPID_API.BASE_URL, {
           params: { league: 15, season: 2025 },
-          headers: {
-            "X-RapidAPI-Key": "ea94cfdf4bmshf69bdb973c12389p1c0c6fjsn29f022cc6533",
-            "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com",
-          },
+          headers: RAPID_API.HEADERS,
         });
 
-        const today = new Date();
-        const todayStr = today.toISOString().slice(0, 10);
+        const todayStr = new Date().toISOString().slice(0, 10);
 
-        const todaysMatches = response.data.response.filter(match => {
-          return match.fixture.date.startsWith(todayStr);
-        });
+        const todaysMatches = response.data.response.filter(match =>
+          match.fixture.date.startsWith(todayStr)
+        );
 
         setPartite(todaysMatches);
       } catch (err) {
-        console.error("Errore nel caricamento dei prossimi incontri:", err);
+        console.error("❌ Errore nel caricamento dei prossimi incontri:", err);
       }
     };
 
     fetchMatches();
   }, []);
 
-  // Raggruppa le partite per giorno
   const partitePerGiorno = partite.reduce((acc, match) => {
     const giorno = new Date(match.fixture.date).toLocaleDateString("it-IT", {
       weekday: "long",

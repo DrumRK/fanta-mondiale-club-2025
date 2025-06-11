@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { RAPID_API } from "./config"; // ✅ Importa da config centralizzata
 
 const giocatori = [
   { name: "ENZO", teams: ["Paris Saint Germain", "Borussia Dortmund", "Wydad AC", "Urawa"] },
@@ -9,15 +10,14 @@ const giocatori = [
   { name: "DANI & CIRO", teams: ["Flamengo", "Benfica", "Al-Hilal Saudi FC", "Al Ain"] },
   { name: "MARIO", teams: ["River Plate", "FC Porto", "Botafogo", "Mamelodi Sundowns"] },
   { name: "UMBERTO", teams: ["Bayern München", "Atletico Madrid", "Ulsan Hyundai FC", "ES Tunis"] },
-  { name: "BENNY", teams: [, "Real Madrid", "Juventus", "Al Ahly", "Seattle Sounders"] }
+  { name: "BENNY", teams: ["Real Madrid", "Juventus", "Al Ahly", "Seattle Sounders"] } // ✅ Corretto qui
 ];
 
 const trovaProprietario = (teamName) => {
   for (const giocatore of giocatori) {
-    if (giocatore.teams.includes(teamName)) {
-      return giocatore.name;
-    }
+    if (giocatore.teams.includes(teamName)) return giocatore.name;
   }
+  console.warn(`❗ Nessun proprietario trovato per: ${teamName}`);
   return "--";
 };
 
@@ -27,33 +27,29 @@ export default function Calendario() {
   useEffect(() => {
     const fetchMatches = async () => {
       try {
-        const response = await axios.get("https://api-football-v1.p.rapidapi.com/v3/fixtures", {
+        const response = await axios.get(RAPID_API.BASE_URL, {
           params: { league: 15, season: 2025 },
-          headers: {
-            "X-RapidAPI-Key": "ea94cfdf4bmshf69bdb973c12389p1c0c6fjsn29f022cc6533",
-            "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com",
-          },
+          headers: RAPID_API.HEADERS,
         });
 
-        const futureMatches = response.data.response.filter(match => {
-          return match.fixture.status.short !== "FT";
-        });
+        const futureMatches = response.data.response.filter(
+          match => match.fixture.status.short !== "FT"
+        );
 
         setPartite(futureMatches);
       } catch (err) {
-        console.error("Errore nel caricamento del calendario:", err);
+        console.error("❌ Errore nel caricamento del calendario:", err);
       }
     };
 
     fetchMatches();
   }, []);
 
-  // Raggruppa le partite per giorno
   const partitePerGiorno = partite.reduce((acc, match) => {
     const giorno = new Date(match.fixture.date).toLocaleDateString("it-IT", {
       weekday: "long",
       day: "numeric",
-      month: "long"
+      month: "long",
     });
     if (!acc[giorno]) acc[giorno] = [];
     acc[giorno].push(match);
@@ -75,7 +71,7 @@ export default function Calendario() {
                   <div className="text-sm text-gray-600 mb-1 text-center">
                     {new Date(match.fixture.date).toLocaleTimeString("it-IT", {
                       hour: "2-digit",
-                      minute: "2-digit"
+                      minute: "2-digit",
                     })}
                   </div>
                   <div className="flex justify-between items-center text-center">
