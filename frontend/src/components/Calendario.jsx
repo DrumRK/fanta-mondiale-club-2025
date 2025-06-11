@@ -115,7 +115,7 @@ export default function Calendario() {
                             {match.home}
                           </div>
                           <div className="text-sm text-blue-400 font-medium mt-1">
-                            ({match.homeOwner})
+                            ({match.homeowner})
                           </div>
                         </div>
                         
@@ -129,7 +129,7 @@ export default function Calendario() {
                             {match.away}
                           </div>
                           <div className="text-sm text-pink-400 font-medium mt-1">
-                            ({match.awayOwner})
+                            ({match.awayowner})
                           </div>
                         </div>
                       </div>
