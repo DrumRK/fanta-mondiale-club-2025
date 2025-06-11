@@ -182,7 +182,7 @@ router.get("/test/simulate-psg-real", async (req, res) => {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
     `, [
-      Date.now(), // Usa solo il timestamp numerico (risolve l'errore)
+      Math.floor(Date.now() / 1000), // Timestamp più piccolo
       homeTeamId,
       awayTeamId, 
       2, // PSG goals
@@ -243,7 +243,7 @@ router.get("/test/simulate-draw", async (req, res) => {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
     `, [
-      Date.now(),
+      Math.floor(Date.now() / 1000), // Timestamp più piccolo
       homeTeamId,
       awayTeamId, 
       1, // Chelsea goals
@@ -309,7 +309,7 @@ router.post("/test/add-result", async (req, res) => {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `, [
-      Date.now(), // Fix: usa solo numero invece di stringa
+      Math.floor(Date.now() / 1000), // Fix: timestamp più piccolo
       homeTeamId,
       awayTeamId, 
       homeGoals,
@@ -345,8 +345,8 @@ router.get("/test/reset", async (req, res) => {
   try {
     console.log('🧹 Reset partite di test...');
     
-    // Rimuovi tutte le partite di test (ora con external_id numerico)
-    await query("DELETE FROM matches WHERE external_id > 1700000000000");
+    // Rimuovi tutte le partite di test (timestamp dal 2025)
+    await query("DELETE FROM matches WHERE external_id > 1700000000");
     
     // Reset classifica
     await LeaderboardService.recalculateLeaderboard();
