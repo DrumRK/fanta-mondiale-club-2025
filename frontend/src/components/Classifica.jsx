@@ -136,10 +136,10 @@ export default function Classifica() {
   }
 
   const getRankIcon = (position) => {
-    if (position === 1) return "🥇";
-    if (position === 2) return "🥈";
-    if (position === 3) return "🥉";
-    return position;
+    if (position === 1) return "💎"; // Diamond for 1st place
+    if (position === 2) return "🥇"; // Gold for 2nd place  
+    if (position === 3) return "🥉"; // Bronze for 3rd place
+    return position; // Show number for 4th place and below
   };
 
   return (
@@ -202,18 +202,18 @@ export default function Classifica() {
               <div 
                 key={giocatore.name || idx} 
                 className={`flex items-center justify-between p-6 rounded-xl transition-all duration-200 hover:scale-[1.02] group ${
-                  idx === 0 ? 'bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30' :
-                  idx === 1 ? 'bg-gradient-to-r from-gray-400/20 to-gray-500/20 border border-gray-400/30' :
-                  idx === 2 ? 'bg-gradient-to-r from-orange-600/20 to-yellow-600/20 border border-orange-600/30' :
+                  idx === 0 ? 'bg-gradient-to-r from-cyan-400/20 to-blue-500/20 border-2 border-cyan-400/40 shadow-lg shadow-cyan-400/20' :
+                  idx === 1 ? 'bg-gradient-to-r from-yellow-400/20 to-orange-500/20 border-2 border-yellow-400/40 shadow-lg shadow-yellow-400/20' :
+                  idx === 2 ? 'bg-gradient-to-r from-orange-600/20 to-red-600/20 border-2 border-orange-600/40 shadow-lg shadow-orange-600/20' :
                   'bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600/30'
                 }`}
               >
                 <div className="flex items-center space-x-6">
                   {/* Rank */}
                   <div className={`flex items-center justify-center w-14 h-14 rounded-full font-bold text-lg shadow-lg ${
-                    idx === 0 ? 'bg-gradient-to-r from-yellow-400 to-orange-400 text-black' :
-                    idx === 1 ? 'bg-gradient-to-r from-gray-300 to-gray-400 text-black' :
-                    idx === 2 ? 'bg-gradient-to-r from-orange-500 to-yellow-500 text-black' :
+                    idx === 0 ? 'bg-gradient-to-r from-cyan-300 to-blue-400 text-black' :
+                    idx === 1 ? 'bg-gradient-to-r from-yellow-300 to-orange-400 text-black' :
+                    idx === 2 ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white' :
                     'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
                   }`}>
                     {getRankIcon(idx + 1)}
@@ -225,7 +225,7 @@ export default function Classifica() {
                       {giocatore.name || "N/A"}
                     </p>
                     <p className="text-sm text-gray-400">
-                      🎮 {giocatore.partite || 0} partite • 
+                      🏆 {giocatore.wins || 0} vittorie • 
                       🤝 {giocatore.pareggi || 0} pareggi • 
                       ❌ {giocatore.sconfitte || 0} sconfitte
                     </p>
@@ -239,7 +239,19 @@ export default function Classifica() {
                   </div>
                   <div className="text-sm text-green-400 font-medium">punti</div>
                   {idx === 0 && (
-                    <div className="text-xs text-yellow-400 font-bold mt-1">👑 LEADER</div>
+                    <div className="text-xs text-cyan-300 font-bold mt-1 flex items-center justify-end">
+                      💎 CHAMPION
+                    </div>
+                  )}
+                  {idx === 1 && (
+                    <div className="text-xs text-yellow-300 font-bold mt-1 flex items-center justify-end">
+                      🥇 RUNNER-UP
+                    </div>
+                  )}
+                  {idx === 2 && (
+                    <div className="text-xs text-orange-300 font-bold mt-1 flex items-center justify-end">
+                      🥉 THIRD PLACE
+                    </div>
                   )}
                 </div>
               </div>

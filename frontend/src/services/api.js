@@ -105,6 +105,16 @@ export const apiService = {
     }
   },
 
+  getRisultati: async () => {
+  try {
+    const response = await api.get('/risultati');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching risultati:', error);
+    throw error;
+  }
+},
+
   updateMatches: async () => {
     try {
       const response = await api.post('/admin/update-matches');

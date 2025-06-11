@@ -201,6 +201,55 @@ static async getFinishedMatches() {
     }
   }
 
+  static async getFinishedMatches() {
+  try {
+    const result = await query(`
+      SELECT DISTINCT
+        m.id,
+        m.external_id,
+        m.match_date as date,
+        ht.name as home,
+        at.name as away,
+        COALESCE(hp.name, 'N/A') as homeowner,
+        COALESCE(ap.name, 'N/A') as awayowner,
+        m.home_goals,
+        m.away_goals,
+        m.status,
+        m.is_knockout,
+        COALESCE(wt.name, '') as winner_team,
+        COALESCE(wp.name, 'N/A') as winner_owner,
+        CASE 
+          WHEN m.home_goals > m.away_goals THEN 'home'
+          WHEN m.away_goals > m.home_goals THEN 'away'
+          WHEN m.home_goals = m.away_goals AND m.winner_team_id = m.home_team_id THEN 'home'
+          WHEN m.home_goals = m.away_goals AND m.winner_team_id = m.away_team_id THEN 'away'
+          ELSE 'draw'
+        END as result_type
+      FROM matches m
+      JOIN teams ht ON m.home_team_id = ht.id
+      JOIN teams at ON m.away_team_id = at.id
+      LEFT JOIN player_teams hpt ON ht.id = hpt.team_id
+      LEFT JOIN players hp ON hpt.player_id = hp.id
+      LEFT JOIN player_teams apt ON at.id = apt.team_id
+      LEFT JOIN players ap ON apt.player_id = ap.id
+      LEFT JOIN teams wt ON m.winner_team_id = wt.id
+      LEFT JOIN player_teams wpt ON wt.id = wpt.team_id
+      LEFT JOIN players wp ON wpt.player_id = wp.id
+      WHERE m.status = 'finished'
+        AND m.home_goals IS NOT NULL 
+        AND m.away_goals IS NOT NULL
+      ORDER BY m.match_date DESC
+      LIMIT 500
+    `);
+    
+    console.log(`🏆 Retrieved ${result.rows.length} finished matches`);
+    return result.rows;
+  } catch (error) {
+    console.error('❌ Error getting finished matches:', error);
+    throw error;
+  }
+}
+
   // Get players' teams for easy lookup
   static async getPlayersTeams() {
     try {
