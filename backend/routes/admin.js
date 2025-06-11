@@ -2,6 +2,7 @@ import express from "express";
 import { MatchUpdater } from "../services/matchUpdater.js";
 import { Scheduler } from "../services/scheduler.js";
 import { LeaderboardService } from "../services/database/leaderboardService.js";
+import { query } from "../db/connection.js";  // ⭐ AGGIUNGI QUESTA RIGA
 
 const router = express.Router();
 
@@ -152,8 +153,6 @@ router.post("/update-results", async (req, res) => {
   }
 });
 
-// Aggiungi in backend/routes/admin.js
-
 // Test endpoint per simulare risultati
 router.post("/test/add-result", async (req, res) => {
   try {
@@ -200,7 +199,6 @@ router.post("/test/add-result", async (req, res) => {
     ]);
     
     // Ricalcola classifica
-    const { LeaderboardService } = await import('../services/database/leaderboardService.js');
     await LeaderboardService.recalculateLeaderboard();
     
     res.json({
@@ -229,7 +227,6 @@ router.post("/test/reset", async (req, res) => {
     await query("DELETE FROM matches WHERE external_id LIKE 'TEST_%'");
     
     // Reset classifica
-    const { LeaderboardService } = await import('../services/database/leaderboardService.js');
     await LeaderboardService.recalculateLeaderboard();
     
     res.json({
