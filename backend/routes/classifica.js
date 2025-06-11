@@ -7,19 +7,12 @@ router.get("/", async (req, res) => {
   try {
     console.log('📊 Fetching leaderboard from database...');
     
-    // Get leaderboard from database (super fast!)
     const classifica = await LeaderboardService.getLeaderboard();
-    
-    // Get last update time
-    const lastUpdate = await LeaderboardService.getLastUpdateTime();
     
     console.log(`✅ Retrieved leaderboard with ${classifica.length} players`);
     
-    res.json({
-      data: classifica,
-      lastUpdate: lastUpdate,
-      source: 'database'
-    });
+    // Return the array directly (simpler for frontend)
+    res.json(classifica);
     
   } catch (error) {
     console.error("❌ Error getting leaderboard:", error.message);
