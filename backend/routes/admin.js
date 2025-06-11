@@ -152,4 +152,100 @@ router.post("/update-results", async (req, res) => {
   }
 });
 
+// Aggiungi in backend/routes/admin.js
+
+// Test endpoint per simulare risultati
+router.post("/test/add-result", async (req, res) => {
+  try {
+    const { homeTeam, awayTeam, homeGoals, awayGoals, winnerTeam } = req.body;
+    
+    console.log('🧪 Simulazione partita:', { homeTeam, awayTeam, homeGoals, awayGoals });
+    
+    // Trova o crea le squadre
+    const homeTeamResult = await query('SELECT id FROM teams WHERE name = $1', [homeTeam]);
+    const awayTeamResult = await query('SELECT id FROM teams WHERE name = $1', [awayTeam]);
+    
+    if (homeTeamResult.rows.length === 0 || awayTeamResult.rows.length === 0) {
+      return res.status(400).json({ error: 'Squadre non trovate nel database' });
+    }
+    
+    const homeTeamId = homeTeamResult.rows[0].id;
+    const awayTeamId = awayTeamResult.rows[0].id;
+    
+    let winnerTeamId = null;
+    if (winnerTeam) {
+      const winnerResult = await query('SELECT id FROM teams WHERE name = $1', [winnerTeam]);
+      if (winnerResult.rows.length > 0) {
+        winnerTeamId = winnerResult.rows[0].id;
+      }
+    }
+    
+    // Inserisci partita fittizia con risultato
+    const matchResult = await query(`
+      INSERT INTO matches (
+        external_id, home_team_id, away_team_id, home_goals, away_goals,
+        winner_team_id, match_date, status, is_knockout
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING *
+    `, [
+      'TEST_' + Date.now(), // ID fittizio
+      homeTeamId,
+      awayTeamId, 
+      homeGoals,
+      awayGoals,
+      winnerTeamId,
+      new Date(), // Ora
+      'finished',
+      !!winnerTeam // true se c'è un vincitore specificato
+    ]);
+    
+    // Ricalcola classifica
+    const { LeaderboardService } = await import('../services/database/leaderboardService.js');
+    await LeaderboardService.recalculateLeaderboard();
+    
+    res.json({
+      success: true,
+      message: "Partita di test aggiunta e classifica ricalcolata",
+      match: matchResult.rows[0],
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error("❌ Errore simulazione:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Errore durante la simulazione",
+      details: error.message 
+    });
+  }
+});
+
+// Reset database di test
+router.post("/test/reset", async (req, res) => {
+  try {
+    console.log('🧹 Reset partite di test...');
+    
+    // Rimuovi tutte le partite di test
+    await query("DELETE FROM matches WHERE external_id LIKE 'TEST_%'");
+    
+    // Reset classifica
+    const { LeaderboardService } = await import('../services/database/leaderboardService.js');
+    await LeaderboardService.recalculateLeaderboard();
+    
+    res.json({
+      success: true,
+      message: "Database di test resettato",
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error("❌ Errore reset:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Errore durante il reset",
+      details: error.message 
+    });
+  }
+});
+
 export default router;
