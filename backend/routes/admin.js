@@ -2,7 +2,7 @@ import express from "express";
 import { MatchUpdater } from "../services/matchUpdater.js";
 import { Scheduler } from "../services/scheduler.js";
 import { LeaderboardService } from "../services/database/leaderboardService.js";
-import { query } from "../db/connection.js";  // ⭐ AGGIUNGI QUESTA RIGA
+import { query } from "../db/connection.js";
 
 const router = express.Router();
 
@@ -153,7 +153,129 @@ router.post("/update-results", async (req, res) => {
   }
 });
 
-// Test endpoint per simulare risultati
+// 🧪 TEST ENDPOINT GET - Facile da usare dal browser!
+router.get("/test/simulate-psg-real", async (req, res) => {
+  try {
+    console.log('🧪 Test browser: PSG 2-1 Real Madrid');
+    
+    // Trova le squadre
+    const homeTeamResult = await query('SELECT id FROM teams WHERE name = $1', ['Paris Saint Germain']);
+    const awayTeamResult = await query('SELECT id FROM teams WHERE name = $1', ['Real Madrid']);
+    
+    if (homeTeamResult.rows.length === 0 || awayTeamResult.rows.length === 0) {
+      return res.status(400).json({ 
+        error: 'Squadre non trovate nel database',
+        homeFound: homeTeamResult.rows.length > 0,
+        awayFound: awayTeamResult.rows.length > 0,
+        instruction: 'Controlla che le squadre esistano nel database'
+      });
+    }
+    
+    const homeTeamId = homeTeamResult.rows[0].id;
+    const awayTeamId = awayTeamResult.rows[0].id;
+    
+    // Inserisci partita di test: PSG 2-1 Real Madrid
+    const matchResult = await query(`
+      INSERT INTO matches (
+        external_id, home_team_id, away_team_id, home_goals, away_goals,
+        match_date, status, is_knockout
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `, [
+      Date.now(), // Usa solo il timestamp numerico (risolve l'errore)
+      homeTeamId,
+      awayTeamId, 
+      2, // PSG goals
+      1, // Real Madrid goals
+      new Date(),
+      'finished',
+      false
+    ]);
+    
+    // Ricalcola classifica
+    await LeaderboardService.recalculateLeaderboard();
+    
+    res.json({
+      success: true,
+      message: "🎉 Test completato! PSG 2-1 Real Madrid",
+      result: "ENZO dovrebbe avere +3 punti, BENNY 0 punti",
+      match: matchResult.rows[0],
+      nextStep: "Vai su https://fanta-mondiale-club-2025.vercel.app nella sezione Classifica!",
+      testUrl: "Puoi ripetere il test: /api/admin/test/reset poi di nuovo questo endpoint",
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error("❌ Errore test:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Errore durante il test",
+      details: error.message 
+    });
+  }
+});
+
+// 🧪 TEST ENDPOINT GET - Test pareggio
+router.get("/test/simulate-draw", async (req, res) => {
+  try {
+    console.log('🧪 Test browser: Chelsea 1-1 River Plate');
+    
+    // Trova le squadre
+    const homeTeamResult = await query('SELECT id FROM teams WHERE name = $1', ['Chelsea']);
+    const awayTeamResult = await query('SELECT id FROM teams WHERE name = $1', ['River Plate']);
+    
+    if (homeTeamResult.rows.length === 0 || awayTeamResult.rows.length === 0) {
+      return res.status(400).json({ 
+        error: 'Squadre non trovate nel database',
+        homeFound: homeTeamResult.rows.length > 0,
+        awayFound: awayTeamResult.rows.length > 0
+      });
+    }
+    
+    const homeTeamId = homeTeamResult.rows[0].id;
+    const awayTeamId = awayTeamResult.rows[0].id;
+    
+    // Inserisci partita di test: Chelsea 1-1 River Plate
+    const matchResult = await query(`
+      INSERT INTO matches (
+        external_id, home_team_id, away_team_id, home_goals, away_goals,
+        match_date, status, is_knockout
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `, [
+      Date.now(),
+      homeTeamId,
+      awayTeamId, 
+      1, // Chelsea goals
+      1, // River Plate goals
+      new Date(),
+      'finished',
+      false
+    ]);
+    
+    // Ricalcola classifica
+    await LeaderboardService.recalculateLeaderboard();
+    
+    res.json({
+      success: true,
+      message: "🤝 Test pareggio! Chelsea 1-1 River Plate",
+      result: "ZIO ALDO e MARIO dovrebbero avere +1 punto ciascuno",
+      match: matchResult.rows[0],
+      nextStep: "Controlla la classifica per vedere i punti aggiornati!",
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error("❌ Errore test:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Errore durante il test",
+      details: error.message 
+    });
+  }
+});
+
+// Test endpoint per simulare risultati (POST - per uso avanzato)
 router.post("/test/add-result", async (req, res) => {
   try {
     const { homeTeam, awayTeam, homeGoals, awayGoals, winnerTeam } = req.body;
@@ -187,15 +309,15 @@ router.post("/test/add-result", async (req, res) => {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `, [
-      'TEST_' + Date.now(), // ID fittizio
+      Date.now(), // Fix: usa solo numero invece di stringa
       homeTeamId,
       awayTeamId, 
       homeGoals,
       awayGoals,
       winnerTeamId,
-      new Date(), // Ora
+      new Date(),
       'finished',
-      !!winnerTeam // true se c'è un vincitore specificato
+      !!winnerTeam
     ]);
     
     // Ricalcola classifica
@@ -219,19 +341,20 @@ router.post("/test/add-result", async (req, res) => {
 });
 
 // Reset database di test
-router.post("/test/reset", async (req, res) => {
+router.get("/test/reset", async (req, res) => {
   try {
     console.log('🧹 Reset partite di test...');
     
-    // Rimuovi tutte le partite di test
-    await query("DELETE FROM matches WHERE external_id LIKE 'TEST_%'");
+    // Rimuovi tutte le partite di test (ora con external_id numerico)
+    await query("DELETE FROM matches WHERE external_id > 1700000000000");
     
     // Reset classifica
     await LeaderboardService.recalculateLeaderboard();
     
     res.json({
       success: true,
-      message: "Database di test resettato",
+      message: "🧹 Database di test resettato! Tutte le partite di test sono state rimosse.",
+      instruction: "La classifica è stata azzerata. Puoi rifare i test!",
       timestamp: new Date().toISOString()
     });
     
