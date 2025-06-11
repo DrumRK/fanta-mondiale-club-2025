@@ -4,28 +4,28 @@ export class LeaderboardService {
   
   // Get current leaderboard from database
   static async getLeaderboard() {
-    try {
-      const result = await query(`
-        SELECT 
-          p.name,
-          l.points,
-          l.matches_played as partite,
-          l.wins,
-          l.draws as pareggi,
-          l.losses as sconfitte,
-          l.last_updated
-        FROM leaderboard l
-        JOIN players p ON p.id = l.player_id
-        ORDER BY l.points DESC, l.wins DESC, l.matches_played ASC
-      `);
-      
-      console.log(`📊 Retrieved leaderboard with ${result.rows.length} players`);
-      return result.rows;
-    } catch (error) {
-      console.error('❌ Error getting leaderboard:', error);
-      throw error;
-    }
+  try {
+    const result = await query(`
+      SELECT 
+        p.name,
+        l.points as punti,           -- ← Add 'as punti' alias
+        l.matches_played as partite,
+        l.wins,
+        l.draws as pareggi,
+        l.losses as sconfitte,
+        l.last_updated
+      FROM leaderboard l
+      JOIN players p ON p.id = l.player_id
+      ORDER BY l.points DESC, l.wins DESC, l.matches_played ASC
+    `);
+    
+    console.log(`📊 Retrieved leaderboard with ${result.rows.length} players`);
+    return result.rows;
+  } catch (error) {
+    console.error('❌ Error getting leaderboard:', error);
+    throw error;
   }
+}
 
   // Recalculate leaderboard based on match results
   static async recalculateLeaderboard() {
