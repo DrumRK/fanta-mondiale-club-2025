@@ -1,3 +1,4 @@
+// components/Calendario.jsx - FIX TIMEZONE
 import React, { useEffect, useState } from "react";
 import { apiService } from "../services/api";
 
@@ -23,6 +24,34 @@ export default function Calendario() {
 
     fetchCalendario();
   }, []);
+
+  // 🕐 FIX TIMEZONE FUNCTION
+  const formatTimeWithCorrectTimezone = (dateString) => {
+    const date = new Date(dateString);
+    
+    // Debug log per vedere cosa arriva
+    console.log("🕐 Original date:", dateString);
+    console.log("🕐 Parsed date:", date);
+    
+    // Opzione 1: Sottrai 2 ore manualmente
+    const correctedDate = new Date(date.getTime() - (2 * 60 * 60 * 1000));
+    
+    return correctedDate.toLocaleTimeString("it-IT", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const formatDateWithCorrectTimezone = (dateString) => {
+    const date = new Date(dateString);
+    const correctedDate = new Date(date.getTime() - (2 * 60 * 60 * 1000));
+    
+    return correctedDate.toLocaleDateString("it-IT", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+  };
 
   if (loading) {
     return (
@@ -50,13 +79,9 @@ export default function Calendario() {
     );
   }
 
-  // Group matches by day
+  // Group matches by day with corrected timezone
   const partitePerGiorno = partite.reduce((acc, match) => {
-    const giorno = new Date(match.date).toLocaleDateString("it-IT", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-    });
+    const giorno = formatDateWithCorrectTimezone(match.date);
     if (!acc[giorno]) acc[giorno] = [];
     acc[giorno].push(match);
     return acc;
@@ -67,6 +92,7 @@ export default function Calendario() {
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold text-white mb-2">📅 Calendario Partite</h2>
         <p className="text-gray-400">Tutte le prossime partite del torneo</p>
+        <div className="text-xs text-yellow-400 mt-2">🕐 Orari in timezone italiana (Europe/Rome)</div>
       </div>
 
       {Object.keys(partitePerGiorno).length === 0 ? (
@@ -96,15 +122,16 @@ export default function Calendario() {
                       key={match.id} 
                       className="bg-gray-700/50 border border-gray-600/50 rounded-xl p-4 hover:bg-gray-600/50 transition-all duration-200 hover:scale-[1.02] group"
                     >
-                      {/* Match Time */}
+                      {/* Match Time - FIXED */}
                       <div className="text-center mb-4">
                         <div className="inline-flex items-center px-3 py-1 bg-blue-500/20 rounded-full border border-blue-500/30">
                           <span className="text-sm font-medium text-blue-300">
-                            🕐 {new Date(match.date).toLocaleTimeString("it-IT", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
+                            🕐 {formatTimeWithCorrectTimezone(match.date)}
                           </span>
+                        </div>
+                        {/* Debug info - rimuovi in produzione */}
+                        <div className="text-xs text-gray-500 mt-1">
+                          Debug: {match.date} → {formatTimeWithCorrectTimezone(match.date)}
                         </div>
                       </div>
 
