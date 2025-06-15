@@ -193,52 +193,92 @@ static async hasFinishedMatches() {
 
   // ⚽ Fetch ONLY live and recent matches for results (targeted)
   static async fetchResultsFromAPI() {
-    try {
-      const apiKey = ConfigService.getRapidApiKey();
-      const apiHost = ConfigService.getRapidApiHost();
-      
-      console.log('⚽ Fetching live/recent results from API...');
-      
-      // Get today's date
-      const today = new Date();
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      
-      const response = await axios.get("https://api-football-v1.p.rapidapi.com/v3/fixtures", {
-        params: { 
-          league: 15, 
-          season: 2025,
-          // Only get matches from yesterday to tomorrow (live window)
-          from: yesterday.toISOString().split('T')[0],
-          to: tomorrow.toISOString().split('T')[0]
-        },
-        headers: {
-          "X-RapidAPI-Key": apiKey,
-          "X-RapidAPI-Host": apiHost,
-        },
-        timeout: 15000 // Shorter timeout for frequent updates
-      });
+  try {
+    const apiKey = ConfigService.getRapidApiKey();
+    const apiHost = ConfigService.getRapidApiHost();
+    
+    console.log('⚽ Fetching tournament matches with robust date range...');
+    
+    // 🆕 FINESTRA MOLTO PIÙ AMPIA per non perdere nulla
+    const today = new Date();
+    const fiveDaysAgo = new Date(today);
+    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+    const threeDaysAhead = new Date(today);
+    threeDaysAhead.setDate(threeDaysAhead.getDate() + 3);
+    
+    console.log(`📅 Fetching matches from ${fiveDaysAgo.toISOString().split('T')[0]} to ${threeDaysAhead.toISOString().split('T')[0]}`);
+    
+    const response = await axios.get("https://api-football-v1.p.rapidapi.com/v3/fixtures", {
+      params: { 
+        league: 15, 
+        season: 2025,
+        from: fiveDaysAgo.toISOString().split('T')[0],
+        to: threeDaysAhead.toISOString().split('T')[0]
+      },
+      headers: {
+        "X-RapidAPI-Key": apiKey,
+        "X-RapidAPI-Host": apiHost,
+      },
+      timeout: 20000 // Timeout più lungo
+    });
 
-      if (!response.data || !response.data.response) {
-        throw new Error('Invalid API response format');
-      }
-
-      // Filter to only live, finished, or recent matches
-      const relevantMatches = response.data.response.filter(match => {
-        const status = match.fixture.status.short;
-        return status === 'LIVE' || status === '1H' || status === '2H' || 
-               status === 'HT' || status === 'FT' || status === 'ET' || status === 'P';
-      });
-
-      console.log('📈 Live/recent matches received:', relevantMatches.length);
-      return relevantMatches;
-    } catch (error) {
-      this.handleAPIError(error, 'results');
-      throw error;
+    if (!response.data || !response.data.response) {
+      throw new Error('Invalid API response format');
     }
+
+    const allMatches = response.data.response;
+    console.log(`📊 Total matches received from API: ${allMatches.length}`);
+
+    // 🆕 FILTRO MOLTO PERMISSIVO - prendi quasi tutto quello che potrebbe essere rilevante
+    const relevantMatches = allMatches.filter(match => {
+      const status = match.fixture.status.short;
+      const matchDate = new Date(match.fixture.date);
+      const now = new Date();
+      const twoDaysAgo = new Date(now);
+      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+      
+      // Includi MOLTE più condizioni per non perdere nulla
+      return (
+        // 🔴 Tutte le partite live (qualsiasi status che potrebbe essere live)
+        ['LIVE', '1H', '2H', 'HT', 'ET', 'BT', 'P', 'INT', 'BREAK'].includes(status) ||
+        // 🏁 Partite finite negli ultimi 2 giorni
+        (status === 'FT' && matchDate >= twoDaysAgo) ||
+        // 📅 Partite programmate nei prossimi 2 giorni  
+        (['NS', 'TBD', 'CANC', 'PST', 'SUSP'].includes(status) && matchDate <= threeDaysAhead) ||
+        // 🚨 Qualsiasi altra partita di oggi (per sicurezza)
+        (matchDate.toDateString() === now.toDateString())
+      );
+    });
+
+    // 🆕 LOGGING DETTAGLIATO
+    const statusCounts = {};
+    allMatches.forEach(match => {
+      const status = match.fixture.status.short;
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+    });
+    
+    console.log('📈 All status codes in API response:', statusCounts);
+    console.log(`📊 Relevant matches after filtering: ${relevantMatches.length}`);
+    
+    // Log delle partite rilevanti per debug
+    relevantMatches.forEach(match => {
+      console.log(`   🎯 ${match.teams.home.name} vs ${match.teams.away.name} - ${match.fixture.status.short} - ${match.fixture.date}`);
+    });
+
+    return relevantMatches;
+    
+  } catch (error) {
+    console.error('❌ DETAILED API ERROR:', {
+      message: error.message,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data
+    });
+    
+    this.handleAPIError(error, 'results');
+    throw error;
   }
+}
 
   // Handle API errors consistently
   static handleAPIError(error, type) {

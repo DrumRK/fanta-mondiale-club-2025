@@ -151,5 +151,27 @@ router.post("/update-results", async (req, res) => {
     });
   }
 });
-
+// 🆕 NUOVO: Reset forzato del sistema bloccato
+router.post("/reset-locks", async (req, res) => {
+  try {
+    console.log('🔄 Force reset locks triggered via API...');
+    
+    const result = Scheduler.forceResetUpdateLocks();
+    
+    res.json({
+      success: true,
+      message: "🔄 Sistema sbloccato con successo!",
+      ...result,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error("❌ Reset locks failed:", error.message);
+    res.status(500).json({ 
+      success: false,
+      error: "❌ Errore durante il reset del sistema",
+      details: error.message 
+    });
+  }
+}); 
 export default router;

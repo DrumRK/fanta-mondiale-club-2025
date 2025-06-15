@@ -6,6 +6,8 @@ export class Scheduler {
   static resultsUpdateJob = null;
   static isScheduleUpdating = false;
   static isResultsUpdating = false;
+  static scheduleUpdateStartTime = null;
+  static resultsUpdateStartTime = null;
   static status = {
     scheduleJob: 'stopped',
     resultsJob: 'stopped',
@@ -134,49 +136,74 @@ export class Scheduler {
 
   // ⚽ MANUAL RESULTS UPDATE WITH LOCK AND RETRY
   static async triggerResultsUpdateWithRetry(maxRetries = 3) {
-    if (this.isResultsUpdating) {
-      console.log('⏳ Results update already in progress, skipping...');
-      return { success: false, message: 'Update already in progress' };
-    }
-
-    this.isResultsUpdating = true;
+  // 🆕 CHECK SE È BLOCCATO DA TROPPO TEMPO
+  const maxExecutionTime = 10 * 60 * 1000; // 10 minuti max
+  const now = Date.now();
+  
+  if (this.isResultsUpdating) {
+    // Controlla da quanto tempo è in corso
+    const updateStartTime = this.resultsUpdateStartTime || now;
+    const elapsedTime = now - updateStartTime;
     
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        console.log(`⚽ Results update attempt ${attempt}/${maxRetries}...`);
-        
-        const result = await MatchUpdater.updateResults();
-        
-        this.status.lastResultsUpdate = new Date().toISOString();
-        this.status.errors = this.status.errors.filter(e => e.type !== 'results');
-        
-        console.log('✅ Results update completed successfully');
-        return result;
-        
-      } catch (error) {
-        console.error(`❌ Results update attempt ${attempt} failed:`, error.message);
-        
-        this.status.errors.push({
-          type: 'results',
-          message: error.message,
-          timestamp: new Date().toISOString(),
-          attempt
-        });
-        
-        if (attempt === maxRetries) {
-          console.error('❌ All results update attempts failed');
-          throw error;
-        }
-        
-        // Wait before retry (shorter for results since they're more frequent)
-        const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-        console.log(`⏰ Waiting ${waitTime/1000}s before retry...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
+    if (elapsedTime > maxExecutionTime) {
+      console.log(`🚨 Results update stuck for ${Math.round(elapsedTime/1000/60)} minutes - FORCE RESET`);
+      this.isResultsUpdating = false;
+      this.resultsUpdateStartTime = null;
+    } else {
+      console.log(`⏳ Results update in progress for ${Math.round(elapsedTime/1000)} seconds, skipping...`);
+      return { success: false, message: 'Update already in progress', elapsedTime };
+    }
+  }
+
+  this.isResultsUpdating = true;
+  this.resultsUpdateStartTime = now; // 🆕 TRACK START TIME
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`⚽ Results update attempt ${attempt}/${maxRetries}...`);
+      
+      // 🆕 TIMEOUT PER SINGOLO TENTATIVO
+      const updatePromise = MatchUpdater.updateResults();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Update timeout after 5 minutes')), 5 * 60 * 1000)
+      );
+      
+      const result = await Promise.race([updatePromise, timeoutPromise]);
+      
+      this.status.lastResultsUpdate = new Date().toISOString();
+      this.status.errors = this.status.errors.filter(e => e.type !== 'results');
+      
+      console.log('✅ Results update completed successfully');
+      return result;
+      
+    } catch (error) {
+      console.error(`❌ Results update attempt ${attempt} failed:`, error.message);
+      
+      this.status.errors.push({
+        type: 'results',
+        message: error.message,
+        timestamp: new Date().toISOString(),
+        attempt
+      });
+      
+      if (attempt === maxRetries) {
+        console.error('❌ All results update attempts failed');
+        throw error;
+      }
+      
+      // Wait before retry
+      const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+      console.log(`⏰ Waiting ${waitTime/1000}s before retry...`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    } finally {
+      // 🆕 ALWAYS RESET FLAG
+      if (attempt === maxRetries || this.isResultsUpdating) {
+        this.isResultsUpdating = false;
+        this.resultsUpdateStartTime = null;
       }
     }
-    
-    this.isResultsUpdating = false;
   }
+}
 
   // 🔧 LEGACY METHODS FOR BACKWARD COMPATIBILITY
   static async triggerUpdate() {
@@ -239,4 +266,26 @@ export class Scheduler {
       new Date(error.timestamp) > cutoff
     );
   }
+  // 🆕 NUOVO: Force reset del sistema
+static forceResetUpdateLocks() {
+  console.log('🔄 FORCE RESETTING all update locks...');
+  this.isScheduleUpdating = false;
+  this.isResultsUpdating = false;
+  this.scheduleUpdateStartTime = null;
+  this.resultsUpdateStartTime = null;
+  
+  // Clear stuck errors
+  this.status.errors = this.status.errors.filter(e => {
+    const errorAge = Date.now() - new Date(e.timestamp).getTime();
+    return errorAge < 30 * 60 * 1000; // Keep only errors from last 30 minutes
+  });
+  
+  console.log('✅ All locks reset, system ready for new updates');
+  
+  return {
+    success: true,
+    message: 'System locks reset successfully',
+    timestamp: new Date().toISOString()
+  };
+}
 }
