@@ -187,6 +187,20 @@ async function startServer() {
       console.log("📝 Server will continue without scheduler");
     }
   }
+
+  // AGGIUNGI ANCHE UN FALLBACK:
+// Riavvia scheduler dopo 30 secondi se non è attivo
+setTimeout(async () => {
+  try {
+    const status = Scheduler.getStatus();
+    if (!status.scheduleJobActive || !status.resultsJobActive) {
+      console.log("🔄 Scheduler not active, attempting restart...");
+      Scheduler.startAll();
+    }
+  } catch (error) {
+    console.error("❌ Scheduler restart failed:", error.message);
+  }
+}, 30000);
   
   // Start HTTP server
   app.listen(PORT, () => {
