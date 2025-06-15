@@ -74,7 +74,7 @@ export default function Squadre() {
 
               {/* Teams List */}
               <div className="space-y-3">
-                 {player.teams.map((team, idx) => {
+                {player.teams.map((team, idx) => {
                   const isEliminated = team.eliminated || false;
                   
                   return (
@@ -111,10 +111,20 @@ export default function Squadre() {
 
               {/* Stats Footer */}
               <div className="mt-6 pt-4 border-t border-gray-700/50">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Squadre</span>
-                  <span className="text-purple-400 font-bold">{player.teams.length}/4</span>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-gray-400">Squadre Attive</span>
+                  <span className="text-green-400 font-bold">
+                    {player.teams.filter(team => !team.eliminated).length}
+                  </span>
                 </div>
+                {player.teams.some(team => team.eliminated) && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Eliminate</span>
+                    <span className="text-red-400 font-bold">
+                      {player.teams.filter(team => team.eliminated).length}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
