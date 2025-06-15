@@ -180,7 +180,7 @@ async function startServer() {
   // Start scheduler only if database is connected
   if (dbConnected) {
     try {
-      Scheduler.start();
+      Scheduler.startAll();
       console.log("✅ Scheduler started successfully");
     } catch (error) {
       console.error("⚠️ Scheduler failed to start:", error.message);
