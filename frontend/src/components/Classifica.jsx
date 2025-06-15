@@ -144,44 +144,47 @@ export default function Classifica() {
 
   return (
     <div className="space-y-8">
-      {/* Statistics Cards */}
+      {/* Leader Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-400">Leader</p>
+              <p className="text-sm text-gray-400">Leader Attuale</p>
               <p className="text-2xl font-bold text-white">{classifica[0]?.name || "TBD"}</p>
             </div>
             <div className="text-3xl">👑</div>
           </div>
         </div>
+        
         <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-400">Partite Totali</p>
-              <p className="text-2xl font-bold text-white">{classifica.reduce((acc, p) => acc + (p.partite || 0), 0)}</p>
+              <p className="text-sm text-gray-400">Punti Leader</p>
+              <p className="text-2xl font-bold text-white">{classifica[0]?.punti || 0}</p>
+            </div>
+            <div className="text-3xl">🏆</div>
+          </div>
+        </div>
+        
+        <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6 backdrop-blur-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-400">Partite Leader</p>
+              <p className="text-2xl font-bold text-white">{classifica[0]?.partite || 0}</p>
             </div>
             <div className="text-3xl">⚽</div>
           </div>
         </div>
+        
         <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-400">Punti Totali</p>
-              <p className="text-2xl font-bold text-white">{classifica.reduce((acc, p) => acc + (p.punti || 0), 0)}</p>
-            </div>
-            <div className="text-3xl">📊</div>
-          </div>
-        </div>
-        <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6 backdrop-blur-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400">Media Punti</p>
+              <p className="text-sm text-gray-400">Media Leader</p>
               <p className="text-2xl font-bold text-white">
-                {classifica.length > 0 ? (classifica.reduce((acc, p) => acc + (p.punti || 0), 0) / classifica.length).toFixed(1) : "0.0"}
+                {classifica[0]?.partite > 0 ? (classifica[0].punti / classifica[0].partite).toFixed(1) : "0.0"}
               </p>
             </div>
-            <div className="text-3xl">📈</div>
+            <div className="text-3xl">📊</div>
           </div>
         </div>
       </div>
