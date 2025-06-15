@@ -256,7 +256,8 @@ static async getFinishedMatches() {
       const result = await query(`
         SELECT 
           p.name as player_name,
-          t.name as team_name
+          t.name as team_name,
+          COALESCE(t.eliminated, FALSE) as team_eliminated
         FROM players p
         JOIN player_teams pt ON p.id = pt.player_id
         JOIN teams t ON pt.team_id = t.id
@@ -272,7 +273,10 @@ static async getFinishedMatches() {
             teams: []
           };
         }
-        playersTeams[row.player_name].teams.push(row.team_name);
+        playersTeams[row.player_name].teams.push({
+          name: row.team_name,
+          eliminated: row.team_eliminated
+        });
       });
       
       return Object.values(playersTeams);
@@ -281,4 +285,57 @@ static async getFinishedMatches() {
       throw error;
     }
   }
+
+  // AGGIUNGI QUESTO METODO ALLA FINE DELLA CLASSE MatchService (dopo getPlayersTeams)
+static async checkEliminatedTeams() {
+  // Solo dal 28 giugno in poi
+  const currentDate = new Date();
+  const eliminationStartDate = new Date('2025-06-28');
+  
+  if (currentDate < eliminationStartDate) {
+    console.log('📅 Elimination check skipped - before June 28th');
+    return;
+  }
+  
+  try {
+    console.log('🔍 Checking for eliminated teams...');
+    
+    // Trova squadre senza partite future
+    const result = await query(`
+      SELECT DISTINCT t.id, t.name 
+      FROM teams t
+      WHERE COALESCE(t.eliminated, FALSE) = FALSE
+        AND t.id NOT IN (
+          SELECT DISTINCT home_team_id FROM matches WHERE match_date > NOW() AND status = 'scheduled'
+          UNION
+          SELECT DISTINCT away_team_id FROM matches WHERE match_date > NOW() AND status = 'scheduled'
+        )
+        AND t.id IN (
+          SELECT DISTINCT home_team_id FROM matches WHERE status = 'finished'
+          UNION
+          SELECT DISTINCT away_team_id FROM matches WHERE status = 'finished'
+        )
+    `);
+    
+    if (result.rows.length > 0) {
+      console.log(`🚫 Found ${result.rows.length} eliminated teams:`, result.rows.map(t => t.name));
+      
+      // Marca come eliminate
+      for (const team of result.rows) {
+        await query(`
+          UPDATE teams 
+          SET eliminated = TRUE, elimination_date = NOW() 
+          WHERE id = $1
+        `, [team.id]);
+        
+        console.log(`❌ Team eliminated: ${team.name}`);
+      }
+    } else {
+      console.log('✅ No new eliminations found');
+    }
+    
+  } catch (error) {
+    console.error('❌ Error checking eliminated teams:', error);
+  }
+}
 }

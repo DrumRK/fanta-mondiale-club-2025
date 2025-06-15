@@ -111,6 +111,7 @@ export class MatchUpdater {
 
     // Update results timestamp
     await this.setLastResultsUpdateTime();
+    await MatchService.checkEliminatedTeams();
 
     console.log(`✅ Results update completed:`);
     console.log(`   - Updated results: ${updatedResults}`);

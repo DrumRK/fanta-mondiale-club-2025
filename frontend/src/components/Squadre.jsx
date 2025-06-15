@@ -74,22 +74,39 @@ export default function Squadre() {
 
               {/* Teams List */}
               <div className="space-y-3">
-                {player.teams.map((team, idx) => (
-                  <div 
-                    key={idx} 
-                    className="flex items-center space-x-3 p-3 rounded-xl bg-gray-700/50 hover:bg-gray-600/50 transition-all duration-200 hover:scale-[1.02] group"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-green-400 to-blue-500 flex items-center justify-center text-white text-xs font-bold shadow-md group-hover:scale-110 transition-all duration-200">
-                      {idx + 1}
+                 {player.teams.map((team, idx) => {
+                  const isEliminated = team.eliminated || false;
+                  
+                  return (
+                    <div 
+                      key={idx} 
+                      className={`flex items-center space-x-3 p-3 rounded-xl transition-all duration-200 hover:scale-[1.02] group border border-gray-600/30 ${
+                        isEliminated 
+                          ? 'bg-gray-800/30 opacity-50 grayscale' 
+                          : 'bg-gray-700/50 hover:bg-gray-600/50'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md group-hover:scale-110 transition-all duration-200 ${
+                        isEliminated 
+                          ? 'bg-gray-500' 
+                          : 'bg-gradient-to-r from-green-400 to-blue-500'
+                      }`}>
+                        {isEliminated ? '❌' : (idx + 1)}
+                      </div>
+                      <span className={`font-medium transition-colors duration-200 flex-1 ${
+                        isEliminated 
+                          ? 'text-gray-500 line-through' 
+                          : 'text-gray-200 group-hover:text-white'
+                      }`}>
+                        {team.name || team}
+                        {isEliminated && <span className="ml-2 text-xs text-red-400">(Eliminata)</span>}
+                      </span>
+                      <div className="text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        {isEliminated ? '💀' : '⚽'}
+                      </div>
                     </div>
-                    <span className="font-medium text-gray-200 group-hover:text-white transition-colors duration-200 flex-1">
-                      {team}
-                    </span>
-                    <div className="text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      ⚽
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Stats Footer */}
