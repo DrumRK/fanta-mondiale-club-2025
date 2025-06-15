@@ -76,6 +76,23 @@ export default function Squadre() {
               <div className="space-y-3">
                 {player.teams.map((team, idx) => {
                   const isEliminated = team.eliminated || false;
+                  const eliminationReason = team.elimination_reason;
+                  
+                  // Determina l'icona e il colore in base al motivo dell'eliminazione
+                  const getEliminationDisplay = () => {
+                    if (!isEliminated) return { icon: (idx + 1), color: 'bg-gradient-to-r from-green-400 to-blue-500' };
+                    
+                    switch (eliminationReason) {
+                      case 'Group stage elimination':
+                        return { icon: '🏁', color: 'bg-orange-500', reason: 'Eliminata ai gironi' };
+                      case 'Knockout stage defeat':
+                        return { icon: '⚔️', color: 'bg-red-500', reason: 'Eliminata ai playoff' };
+                      default:
+                        return { icon: '❌', color: 'bg-gray-500', reason: 'Eliminata' };
+                    }
+                  };
+                  
+                  const elimination = getEliminationDisplay();
                   
                   return (
                     <div 
@@ -88,19 +105,28 @@ export default function Squadre() {
                     >
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md group-hover:scale-110 transition-all duration-200 ${
                         isEliminated 
-                          ? 'bg-gray-500' 
+                          ? elimination.color
                           : 'bg-gradient-to-r from-green-400 to-blue-500'
                       }`}>
-                        {isEliminated ? '❌' : (idx + 1)}
+                        {elimination.icon}
                       </div>
-                      <span className={`font-medium transition-colors duration-200 flex-1 ${
-                        isEliminated 
-                          ? 'text-gray-500 line-through' 
-                          : 'text-gray-200 group-hover:text-white'
-                      }`}>
-                        {team.name || team}
-                        {isEliminated && <span className="ml-2 text-xs text-red-400">(Eliminata)</span>}
-                      </span>
+                      
+                      <div className="flex-1">
+                        <span className={`font-medium transition-colors duration-200 block ${
+                          isEliminated 
+                            ? 'text-gray-500 line-through' 
+                            : 'text-gray-200 group-hover:text-white'
+                        }`}>
+                          {team.name || team}
+                        </span>
+                        
+                        {isEliminated && (
+                          <div className="text-xs text-red-400 mt-1">
+                            {elimination.reason}
+                          </div>
+                        )}
+                      </div>
+                      
                       <div className="text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                         {isEliminated ? '💀' : '⚽'}
                       </div>
@@ -109,22 +135,44 @@ export default function Squadre() {
                 })}
               </div>
 
-              {/* Stats Footer */}
+              {/* Stats Footer - AGGIORNATO */}
               <div className="mt-6 pt-4 border-t border-gray-700/50">
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-gray-400">Squadre Attive</span>
-                  <span className="text-green-400 font-bold">
-                    {player.teams.filter(team => !team.eliminated).length}
-                  </span>
-                </div>
-                {player.teams.some(team => team.eliminated) && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Eliminate</span>
-                    <span className="text-red-400 font-bold">
-                      {player.teams.filter(team => team.eliminated).length}
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Squadre Attive</span>
+                    <span className="text-green-400 font-bold">
+                      {player.teams.filter(team => !team.eliminated).length}
                     </span>
                   </div>
-                )}
+                  
+                  {player.teams.some(team => team.eliminated && team.elimination_reason === 'Group stage elimination') && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Eliminate ai gironi</span>
+                      <span className="text-orange-400 font-bold">
+                        {player.teams.filter(team => team.elimination_reason === 'Group stage elimination').length}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {player.teams.some(team => team.eliminated && team.elimination_reason === 'Knockout stage defeat') && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Eliminate ai playoff</span>
+                      <span className="text-red-400 font-bold">
+                        {player.teams.filter(team => team.elimination_reason === 'Knockout stage defeat').length}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Fallback per eliminazioni generiche */}
+                  {player.teams.some(team => team.eliminated && !team.elimination_reason) && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Eliminate</span>
+                      <span className="text-gray-400 font-bold">
+                        {player.teams.filter(team => team.eliminated && !team.elimination_reason).length}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

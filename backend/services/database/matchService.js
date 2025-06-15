@@ -286,56 +286,221 @@ static async getFinishedMatches() {
     }
   }
 
-  // AGGIUNGI QUESTO METODO ALLA FINE DELLA CLASSE MatchService (dopo getPlayersTeams)
+// SOSTITUISCI TUTTA LA FUNZIONE checkEliminatedTeams CON QUESTO:
 static async checkEliminatedTeams() {
-  // Solo dal 28 giugno in poi
-  const currentDate = new Date();
-  const eliminationStartDate = new Date('2025-06-28');
-  
-  if (currentDate < eliminationStartDate) {
-    console.log('📅 Elimination check skipped - before June 28th');
-    return;
-  }
-  
   try {
-    console.log('🔍 Checking for eliminated teams...');
+    console.log('🔍 Starting team elimination check...');
     
-    // Trova squadre senza partite future
-    const result = await query(`
-      SELECT DISTINCT t.id, t.name 
-      FROM teams t
-      WHERE COALESCE(t.eliminated, FALSE) = FALSE
-        AND t.id NOT IN (
-          SELECT DISTINCT home_team_id FROM matches WHERE match_date > NOW() AND status = 'scheduled'
-          UNION
-          SELECT DISTINCT away_team_id FROM matches WHERE match_date > NOW() AND status = 'scheduled'
-        )
-        AND t.id IN (
-          SELECT DISTINCT home_team_id FROM matches WHERE status = 'finished'
-          UNION
-          SELECT DISTINCT away_team_id FROM matches WHERE status = 'finished'
-        )
-    `);
+    // Determina in che fase del torneo siamo
+    const tournamentPhase = await this.getTournamentPhase();
+    console.log(`📊 Current tournament phase: ${tournamentPhase}`);
     
-    if (result.rows.length > 0) {
-      console.log(`🚫 Found ${result.rows.length} eliminated teams:`, result.rows.map(t => t.name));
-      
-      // Marca come eliminate
-      for (const team of result.rows) {
-        await query(`
-          UPDATE teams 
-          SET eliminated = TRUE, elimination_date = NOW() 
-          WHERE id = $1
-        `, [team.id]);
-        
-        console.log(`❌ Team eliminated: ${team.name}`);
-      }
-    } else {
-      console.log('✅ No new eliminations found');
+    if (tournamentPhase === 'group_stage') {
+      // Fase a gironi: elimina solo se il torneo è finito
+      await this.eliminateAfterGroupStage();
+    } else if (tournamentPhase === 'knockout_stage') {
+      // Fase ad eliminazione: elimina chi perde nelle partite finite
+      await this.eliminateKnockoutLosers();
     }
     
   } catch (error) {
     console.error('❌ Error checking eliminated teams:', error);
+  }
+}
+
+// AGGIUNGI QUESTE 3 NUOVE FUNZIONI ALLA FINE DELLA CLASSE:
+
+// Nuovo metodo: determina la fase del torneo basandoti sulle date
+static async getTournamentPhase() {
+  try {
+    const currentDate = new Date();
+    const groupStageEndDate = new Date('2025-06-28'); // Il 28 giugno iniziano i playoff
+    
+    if (currentDate < groupStageEndDate) {
+      return 'group_stage';
+    }
+    
+    // Controlla se ci sono partite di eliminazione diretta programmate o finite
+    const knockoutMatches = await query(`
+      SELECT COUNT(*) as count 
+      FROM matches 
+      WHERE match_date >= $1
+      AND status IN ('scheduled', 'live', 'finished')
+    `, [groupStageEndDate]);
+    
+    if (parseInt(knockoutMatches.rows[0].count) > 0) {
+      return 'knockout_stage';
+    }
+    
+    return 'tournament_ended';
+  } catch (error) {
+    console.error('❌ Error determining tournament phase:', error);
+    return 'group_stage'; // Default safe
+  }
+}
+
+// Eliminazione dopo la fase a gironi
+static async eliminateAfterGroupStage() {
+  console.log('🏁 Checking eliminations after group stage...');
+  
+  // Solo dal 28 giugno in poi (dopo che le ultime partite del 27 sono finite)
+  const currentDate = new Date();
+  const knockoutStartDate = new Date('2025-06-28');
+  
+  if (currentDate < knockoutStartDate) {
+    console.log('📅 Group stage still ongoing - elimination check skipped');
+    return;
+  }
+  
+  // Verifica che TUTTE le partite dei gironi (fino al 27 giugno incluso) siano finite
+  const remainingGroupMatches = await query(`
+    SELECT COUNT(*) as count 
+    FROM matches 
+    WHERE match_date < $1
+    AND status IN ('scheduled', 'live')
+  `, [knockoutStartDate]);
+  
+  if (parseInt(remainingGroupMatches.rows[0].count) > 0) {
+    console.log('⏳ Group stage matches still pending, skipping elimination');
+    return;
+  }
+  
+  console.log('✅ Group stage completed (all matches before June 28th finished)');
+  
+  // Trova squadre che non hanno partite dal 28 giugno in poi (eliminate ai gironi)
+  const result = await query(`
+    SELECT DISTINCT t.id, t.name 
+    FROM teams t
+    WHERE COALESCE(t.eliminated, FALSE) = FALSE
+      AND t.id NOT IN (
+        -- Squadre che hanno partite dal 28 giugno in poi (qualificate ai playoff)
+        SELECT DISTINCT home_team_id FROM matches WHERE match_date >= $1
+        UNION
+        SELECT DISTINCT away_team_id FROM matches WHERE match_date >= $1
+      )
+      AND t.id IN (
+        -- Ma che hanno giocato almeno una partita nel torneo
+        SELECT DISTINCT home_team_id FROM matches WHERE status = 'finished'
+        UNION
+        SELECT DISTINCT away_team_id FROM matches WHERE status = 'finished'
+      )
+  `, [knockoutStartDate]);
+  
+  if (result.rows.length > 0) {
+    console.log(`🚫 Found ${result.rows.length} teams eliminated after group stage:`, 
+                result.rows.map(t => t.name));
+    
+    for (const team of result.rows) {
+      await query(`
+        UPDATE teams 
+        SET eliminated = TRUE, 
+            elimination_date = NOW(),
+            elimination_reason = 'Group stage elimination'
+        WHERE id = $1
+      `, [team.id]);
+      
+      console.log(`❌ Team eliminated (group stage): ${team.name}`);
+    }
+  } else {
+    console.log('✅ No teams eliminated after group stage');
+  }
+}
+
+// Eliminazione nella fase ad eliminazione diretta
+static async eliminateKnockoutLosers() {
+  console.log('⚔️ Checking knockout stage eliminations...');
+  
+  try {
+    // Trova tutte le partite di eliminazione diretta (dal 28 giugno in poi) appena finite
+    const knockoutStartDate = new Date('2025-06-28');
+    
+    const recentKnockoutMatches = await query(`
+      SELECT 
+        m.id,
+        m.home_team_id,
+        m.away_team_id,
+        m.home_goals,
+        m.away_goals,
+        m.winner_team_id,
+        m.match_date,
+        ht.name as home_team_name,
+        at.name as away_team_name,
+        wt.name as winner_team_name
+      FROM matches m
+      JOIN teams ht ON m.home_team_id = ht.id
+      JOIN teams at ON m.away_team_id = at.id
+      LEFT JOIN teams wt ON m.winner_team_id = wt.id
+      WHERE m.match_date >= $1  -- Partite dal 28 giugno in poi (knockout stage)
+        AND m.status = 'finished'
+        AND m.home_goals IS NOT NULL 
+        AND m.away_goals IS NOT NULL
+        -- Solo partite degli ultimi 2 giorni per evitare ri-elaborazioni
+        AND m.match_date >= NOW() - INTERVAL '2 days'
+    `, [knockoutStartDate]);
+    
+    console.log(`🔍 Found ${recentKnockoutMatches.rows.length} recent knockout matches to check`);
+    
+    for (const match of recentKnockoutMatches.rows) {
+      let eliminatedTeamId = null;
+      let eliminatedTeamName = '';
+      
+      // Determina chi è stato eliminato
+      if (match.home_goals > match.away_goals) {
+        // Casa vince, ospite eliminato
+        eliminatedTeamId = match.away_team_id;
+        eliminatedTeamName = match.away_team_name;
+      } else if (match.away_goals > match.home_goals) {
+        // Ospite vince, casa eliminata
+        eliminatedTeamId = match.home_team_id;
+        eliminatedTeamName = match.home_team_name;
+      } else if (match.winner_team_id) {
+        // Pareggio ma c'è un vincitore (rigori/supplementari)
+        eliminatedTeamId = match.winner_team_id === match.home_team_id 
+          ? match.away_team_id 
+          : match.home_team_id;
+        eliminatedTeamName = match.winner_team_id === match.home_team_id 
+          ? match.away_team_name 
+          : match.home_team_name;
+      }
+      
+      if (eliminatedTeamId) {
+        // Controlla se la squadra è già stata eliminata
+        const alreadyEliminated = await query(`
+          SELECT eliminated FROM teams WHERE id = $1
+        `, [eliminatedTeamId]);
+        
+        if (!alreadyEliminated.rows[0]?.eliminated) {
+          // Elimina la squadra
+          await query(`
+            UPDATE teams 
+            SET eliminated = TRUE, 
+                elimination_date = NOW(),
+                elimination_reason = 'Knockout stage defeat'
+            WHERE id = $1
+          `, [eliminatedTeamId]);
+          
+          console.log(`❌ Team eliminated (knockout): ${eliminatedTeamName} in match vs ${match.winner_team_name || 'opponent'}`);
+        }
+      }
+    }
+    
+  } catch (error) {
+    console.error('❌ Error in knockout elimination check:', error);
+  }
+}
+
+// Metodo di utilità per reset manuale (per testing)
+static async resetAllEliminations() {
+  try {
+    await query(`
+      UPDATE teams 
+      SET eliminated = FALSE, 
+          elimination_date = NULL,
+          elimination_reason = NULL
+    `);
+    console.log('✅ All team eliminations reset');
+  } catch (error) {
+    console.error('❌ Error resetting eliminations:', error);
   }
 }
 }
