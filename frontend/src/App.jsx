@@ -15,7 +15,7 @@ export default function FantaMondialeApp() {
   const tabs = [
     { id: "classifica", label: "Classifica", icon: "🏆" },
     { id: "calendario", label: "Calendario", icon: "📅" },
-    { id: "prossimi", label: "Live", icon: "⚡" },
+    { id: "prossimi", label: "Incontri del giorno", icon: "⚡" },
     { id: "risultati", label: "Risultati", icon: "🎯" },
     { id: "squadre", label: "Squadre", icon: "👥" },
     { id: "inni", label: "Inni", icon: "🎵" }, // 🎵 NUOVA TAB!

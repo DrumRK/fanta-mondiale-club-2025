@@ -85,7 +85,7 @@ export default function ProssimiIncontri() {
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold text-white mb-2 flex items-center justify-center">
           <span className="mr-3">⚡</span>
-          Incontri Live
+          Incontri del giorno
         </h2>
         <div className="flex items-center justify-center space-x-2">
           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
