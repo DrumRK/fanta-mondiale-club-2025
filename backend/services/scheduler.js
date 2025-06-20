@@ -47,7 +47,7 @@ export class Scheduler {
     console.log('⚽ Starting frequent results update job (every 5 minutes)...');
     
     // Run every 5 minutes
-    this.resultsUpdateJob = cron.schedule('*/5 * * * *', async () => {
+    this.resultsUpdateJob = cron.schedule('*/30 * * * *', async () => {
       await this.triggerResultsUpdateWithRetry();
     }, {
       scheduled: true,
