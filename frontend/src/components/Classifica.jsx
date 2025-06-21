@@ -1,40 +1,25 @@
 import React, { useEffect, useState } from "react";
-import { apiService } from "../services/api";
+import { useAppData } from "../context/AppContext";
 
 export default function Classifica() {
-  const [classifica, setClassifica] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { data, loading, fetchData } = useAppData();
+const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchClassifica = async () => {
-      try {
-        setLoading(true);
-        console.log("🔄 Fetching classifica...");
-        const data = await apiService.getClassifica();
-        console.log("📊 Classifica data received:", data);
-        
-        if (Array.isArray(data)) {
-          setClassifica(data);
-        } else {
-          console.error("❌ Data is not an array:", data);
-          setClassifica([]);
-          setError("I dati ricevuti non sono nel formato corretto.");
-        }
-        setError(null);
-      } catch (err) {
-        console.error("❌ Errore nel caricamento della classifica:", err);
-        setError("Impossibile caricare la classifica. Riprova più tardi.");
-        setClassifica([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+useEffect(() => {
+  const loadClassifica = async () => {
+    try {
+      await fetchData('classifica');
+      setError(null);
+    } catch (err) {
+      console.error("❌ Errore nel caricamento della classifica:", err);
+      setError("Impossibile caricare la classifica. Riprova più tardi.");
+    }
+  };
 
-    fetchClassifica();
-  }, []);
+  loadClassifica();
+}, []);
 
-  if (loading) {
+  if (loading.classifica) {
     return (
       <div className="flex items-center justify-center p-12">
         <div className="text-center">
@@ -61,7 +46,7 @@ export default function Classifica() {
     );
   }
 
-  if (classifica.length === 0) {
+  if (!data.classifica || data.classifica.length === 0) {
     return (
       <div className="space-y-8">
         {/* Statistics Cards - Empty State */}
@@ -150,7 +135,7 @@ export default function Classifica() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-400">Leader Attuale</p>
-              <p className="text-2xl font-bold text-white">{classifica[0]?.name || "TBD"}</p>
+              <p className="text-2xl font-bold text-white">{data.classifica?.[0]?.name || "TBD"}</p>
             </div>
             <div className="text-3xl">👑</div>
           </div>
@@ -160,7 +145,7 @@ export default function Classifica() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-400">Punti Leader</p>
-              <p className="text-2xl font-bold text-white">{classifica[0]?.punti || 0}</p>
+              <p className="text-2xl font-bold text-white">{data.classifica?.[0]?.punti || 0}</p>
             </div>
             <div className="text-3xl">🏆</div>
           </div>
@@ -170,7 +155,7 @@ export default function Classifica() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-400">Partite Leader</p>
-              <p className="text-2xl font-bold text-white">{classifica[0]?.partite || 0}</p>
+              <p className="text-2xl font-bold text-white">{data.classifica?.[0]?.partite || 0}</p>
             </div>
             <div className="text-3xl">⚽</div>
           </div>
@@ -181,7 +166,7 @@ export default function Classifica() {
             <div>
               <p className="text-sm text-gray-400">Media Leader</p>
               <p className="text-2xl font-bold text-white">
-                {classifica[0]?.partite > 0 ? (classifica[0].punti / classifica[0].partite).toFixed(1) : "0.0"}
+                {data.classifica?.[0]?.partite > 0 ? (data.classifica?.[0]?.punti / data.classifica?.[0]?.partite).toFixed(1) : "0.0"}
               </p>
             </div>
             <div className="text-3xl">📊</div>
@@ -201,7 +186,7 @@ export default function Classifica() {
         
         <div className="p-6">
           <div className="space-y-4">
-            {classifica.map((giocatore, idx) => (
+            {(data.classifica || []).map((giocatore, idx) => (
               <div 
                 key={giocatore.name || idx} 
                 className={`flex items-center justify-between p-6 rounded-xl transition-all duration-200 hover:scale-[1.02] group ${

@@ -44,10 +44,10 @@ export class Scheduler {
       return;
     }
 
-    console.log('⚽ Starting frequent results update job (every 5 minutes)...');
+    console.log('⚽ Starting results update job (every 60 minutes)...');
     
     // Run every 5 minutes
-    this.resultsUpdateJob = cron.schedule('*/30 * * * *', async () => {
+    this.resultsUpdateJob = cron.schedule('0 * * * *', async () => {
       await this.triggerResultsUpdateWithRetry();
     }, {
       scheduled: true,
@@ -236,7 +236,7 @@ export class Scheduler {
       scheduleJobActive: !!this.scheduleUpdateJob,
       resultsJobActive: !!this.resultsUpdateJob,
       nextScheduleRun: this.scheduleUpdateJob ? 'Daily at 6:00 AM' : 'Not scheduled',
-      nextResultsRun: this.resultsUpdateJob ? 'Every 5 minutes' : 'Not scheduled',
+      nextResultsRun: this.resultsUpdateJob ? 'Every 60 minutes' : 'Not scheduled',
       systemTime: new Date().toISOString(),
       timezone: 'Europe/Rome'
     };

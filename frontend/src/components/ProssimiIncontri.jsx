@@ -1,28 +1,23 @@
 import React, { useEffect, useState } from "react";
-import { apiService } from "../services/api";
+import { useAppData } from "../context/AppContext";
 
 export default function ProssimiIncontri() {
-  const [partite, setPartite] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { data, loading, fetchData } = useAppData();
+const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchIncontri = async () => {
-      try {
-        setLoading(true);
-        const data = await apiService.getIncontriOggi();
-        setPartite(data);
-        setError(null);
-      } catch (err) {
-        console.error("Errore nel caricamento degli incontri:", err);
-        setError("Impossibile caricare gli incontri. Riprova più tardi.");
-      } finally {
-        setLoading(false);
-      }
-    };
+useEffect(() => {
+  const loadIncontri = async () => {
+    try {
+      await fetchData('incontri');
+      setError(null);
+    } catch (err) {
+      console.error("Errore nel caricamento degli incontri:", err);
+      setError("Impossibile caricare gli incontri. Riprova più tardi.");
+    }
+  };
 
-    fetchIncontri();
-  }, []);
+  loadIncontri();
+}, []);
 
   // 🕐 FIX TIMEZONE FUNCTIONS
   const formatTimeWithCorrectTimezone = (dateString) => {
@@ -46,7 +41,7 @@ export default function ProssimiIncontri() {
     });
   };
 
-  if (loading) {
+  if (loading.incontri) {
     return (
       <div className="flex items-center justify-center p-12">
         <div className="text-center">
@@ -72,7 +67,8 @@ export default function ProssimiIncontri() {
       </div>
     );
   }
-
+  
+  const partite = data.incontri || [];
   const partitePerGiorno = partite.reduce((acc, match) => {
     const giorno = formatDateWithCorrectTimezone(match.data);
     if (!acc[giorno]) acc[giorno] = [];

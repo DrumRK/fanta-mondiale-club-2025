@@ -6,6 +6,7 @@ import Squadre from "./components/Squadre";
 import Regolamento from "./components/Regolamento";
 import Risultati from "./components/Risultati";
 import Inni from "./components/Inni"; // 🎵 NUOVO IMPORT!
+import { AppProvider } from "./context/AppContext";
 
 export default function FantaMondialeApp() {
   const [activeTab, setActiveTab] = useState("classifica");
@@ -36,6 +37,7 @@ export default function FantaMondialeApp() {
   };
 
   return (
+  <AppProvider>
     <div className={`min-h-screen transition-all duration-300 ${
       darkMode 
         ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900' 
@@ -116,5 +118,6 @@ export default function FantaMondialeApp() {
         }
       `}</style>
     </div>
+    </AppProvider>
   );
 }

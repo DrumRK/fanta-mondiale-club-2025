@@ -1,30 +1,25 @@
 import React, { useEffect, useState } from "react";
-import { apiService } from "../services/api";
+import { useAppData } from "../context/AppContext";
 
 export default function Squadre() {
-  const [giocatori, setGiocatori] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { data, loading, fetchData } = useAppData();
+const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchSquadre = async () => {
-      try {
-        setLoading(true);
-        const data = await apiService.getSquadre();
-        setGiocatori(data);
-        setError(null);
-      } catch (err) {
-        console.error("Errore nel caricamento delle squadre:", err);
-        setError("Impossibile caricare le squadre. Riprova più tardi.");
-      } finally {
-        setLoading(false);
-      }
-    };
+useEffect(() => {
+  const loadSquadre = async () => {
+    try {
+      await fetchData('squadre');
+      setError(null);
+    } catch (err) {
+      console.error("Errore nel caricamento delle squadre:", err);
+      setError("Impossibile caricare le squadre. Riprova più tardi.");
+    }
+  };
 
-    fetchSquadre();
-  }, []);
+  loadSquadre();
+}, []);
 
-  if (loading) {
+  if (loading.squadre) {
     return (
       <div className="flex items-center justify-center p-12">
         <div className="text-center">
@@ -58,6 +53,7 @@ export default function Squadre() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        const giocatori = data.squadre || [];
         {giocatori.map((player, index) => {
           // Calcola squadre attive per questo giocatore
           const activeTeams = player.teams.filter(team => !team.eliminated).length;
@@ -205,7 +201,7 @@ export default function Squadre() {
         })}
       </div>
 
-      {giocatori.length === 0 && (
+      {(!data.squadre || data.squadre.length === 0) && (
         <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-12 text-center backdrop-blur-sm">
           <div className="text-6xl mb-6">👥</div>
           <h3 className="text-2xl font-bold text-white mb-4">Nessuna squadra disponibile</h3>

@@ -1,29 +1,24 @@
 // components/Risultati.jsx - FIXED TIMEZONE VERSION
 import React, { useEffect, useState } from "react";
-import { apiService } from "../services/api";
+import { useAppData } from "../context/AppContext";
 
 export default function Risultati() {
-  const [partite, setPartite] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { data, loading, fetchData } = useAppData();
+const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchRisultati = async () => {
-      try {
-        setLoading(true);
-        const data = await apiService.getRisultati();
-        setPartite(data);
-        setError(null);
-      } catch (err) {
-        console.error("Errore nel caricamento dei risultati:", err);
-        setError("Impossibile caricare i risultati. Riprova più tardi.");
-      } finally {
-        setLoading(false);
-      }
-    };
+useEffect(() => {
+  const loadRisultati = async () => {
+    try {
+      await fetchData('risultati');
+      setError(null);
+    } catch (err) {
+      console.error("Errore nel caricamento dei risultati:", err);
+      setError("Impossibile caricare i risultati. Riprova più tardi.");
+    }
+  };
 
-    fetchRisultati();
-  }, []);
+  loadRisultati();
+}, []);
 
   // 🕐 FIX TIMEZONE FUNCTIONS
   const formatTimeWithCorrectTimezone = (dateString) => {
@@ -47,7 +42,7 @@ export default function Risultati() {
     });
   };
 
-  if (loading) {
+  if (loading.risultati) {
     return (
       <div className="flex items-center justify-center p-12">
         <div className="text-center">
@@ -74,6 +69,7 @@ export default function Risultati() {
   }
 
   // Raggruppa partite per data con timezone corretta
+  const partite = data.risultati || [];
   const partitePerGiorno = partite.reduce((acc, match) => {
     const giorno = formatDateWithCorrectTimezone(match.date);
     if (!acc[giorno]) acc[giorno] = [];

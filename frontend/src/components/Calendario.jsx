@@ -1,29 +1,24 @@
 // components/Calendario.jsx - FIX TIMEZONE
 import React, { useEffect, useState } from "react";
-import { apiService } from "../services/api";
+import { useAppData } from "../context/AppContext";
 
 export default function Calendario() {
-  const [partite, setPartite] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { data, loading, fetchData } = useAppData();
+const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchCalendario = async () => {
-      try {
-        setLoading(true);
-        const data = await apiService.getCalendario();
-        setPartite(data);
-        setError(null);
-      } catch (err) {
-        console.error("Errore nel caricamento del calendario:", err);
-        setError("Impossibile caricare il calendario. Riprova più tardi.");
-      } finally {
-        setLoading(false);
-      }
-    };
+useEffect(() => {
+  const loadCalendario = async () => {
+    try {
+      await fetchData('calendario');
+      setError(null);
+    } catch (err) {
+      console.error("Errore nel caricamento del calendario:", err);
+      setError("Impossibile caricare il calendario. Riprova più tardi.");
+    }
+  };
 
-    fetchCalendario();
-  }, []);
+  loadCalendario();
+}, []);
 
   // 🕐 FIX TIMEZONE FUNCTION
   const formatTimeWithCorrectTimezone = (dateString) => {
@@ -53,7 +48,7 @@ export default function Calendario() {
     });
   };
 
-  if (loading) {
+  if (loading.calendario) {
     return (
       <div className="flex items-center justify-center p-12">
         <div className="text-center">
@@ -80,6 +75,7 @@ export default function Calendario() {
   }
 
   // Group matches by day with corrected timezone
+  const partite = data.calendario || [];
   const partitePerGiorno = partite.reduce((acc, match) => {
     const giorno = formatDateWithCorrectTimezone(match.date);
     if (!acc[giorno]) acc[giorno] = [];
