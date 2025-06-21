@@ -3,21 +3,33 @@ import { useAppData } from "../context/AppContext";
 
 export default function Squadre() {
   const { data, loading, fetchData } = useAppData();
-const [error, setError] = useState(null);
+  const [error, setError] = useState(null);
 
-useEffect(() => {
-  const loadSquadre = async () => {
-    try {
-      await fetchData('squadre');
-      setError(null);
-    } catch (err) {
-      console.error("Errore nel caricamento delle squadre:", err);
-      setError("Impossibile caricare le squadre. Riprova più tardi.");
-    }
-  };
+  useEffect(() => {
+    const loadSquadre = async () => {
+      try {
+        console.log('🔄 Caricamento squadre...');
+        await fetchData('squadre');
+        console.log('✅ Squadre caricate:', data.squadre);
+        setError(null);
+      } catch (err) {
+        console.error("❌ Errore nel caricamento delle squadre:", err);
+        setError("Impossibile caricare le squadre. Riprova più tardi.");
+      }
+    };
 
-  loadSquadre();
-}, []);
+    loadSquadre();
+  }, [fetchData]);
+
+  // Debug logs
+  useEffect(() => {
+    console.log('🔍 Stato componente Squadre:', {
+      loading: loading.squadre,
+      hasData: !!data.squadre,
+      dataLength: data.squadre?.length,
+      error
+    });
+  }, [loading, data, error]);
 
   if (loading.squadre) {
     return (
@@ -45,6 +57,9 @@ useEffect(() => {
     );
   }
 
+  // ✅ CORRETTO: Sposta la dichiarazione fuori dal JSX
+  const giocatori = data.squadre || [];
+
   return (
     <div className="space-y-8">
       <div className="text-center mb-8">
@@ -53,15 +68,14 @@ useEffect(() => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        const giocatori = data.squadre || [];
         {giocatori.map((player, index) => {
           // Calcola squadre attive per questo giocatore
-          const activeTeams = player.teams.filter(team => !team.eliminated).length;
-          const totalTeams = player.teams.length;
+          const activeTeams = player.teams?.filter(team => !team.eliminated).length || 0;
+          const totalTeams = player.teams?.length || 0;
           
           return (
             <div 
-              key={player.name} 
+              key={player.name || index} 
               className="bg-gray-800/50 border border-gray-700 rounded-2xl backdrop-blur-sm overflow-hidden hover:scale-105 transition-all duration-300 hover:bg-gray-700/50"
             >
               <div className="p-6">
@@ -69,13 +83,13 @@ useEffect(() => {
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-xl font-bold text-white">{player.name}</h3>
                   <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                    {player.name.charAt(0)}
+                    {player.name?.charAt(0) || '?'}
                   </div>
                 </div>
 
                 {/* Teams List */}
                 <div className="space-y-3">
-                  {player.teams.map((team, idx) => {
+                  {(player.teams || []).map((team, idx) => {
                     const isEliminated = team.eliminated || false;
                     const eliminationReason = team.elimination_reason;
                     
@@ -97,7 +111,7 @@ useEffect(() => {
                     
                     return (
                       <div 
-                        key={idx} 
+                        key={`${player.name}-${idx}`} 
                         className={`flex items-center space-x-3 p-3 rounded-xl transition-all duration-200 hover:scale-[1.02] group border border-gray-600/30 ${
                           isEliminated 
                             ? 'bg-gray-800/30 opacity-50 grayscale' 
@@ -121,7 +135,7 @@ useEffect(() => {
                             {team.name || team}
                           </span>
                           
-                          {isEliminated && (
+                          {isEliminated && elimination.reason && (
                             <div className="text-xs text-red-400 mt-1">
                               {elimination.reason}
                             </div>
@@ -138,7 +152,7 @@ useEffect(() => {
 
                 {/* Stats Footer con contatore dinamico */}
                 <div className="mt-6 pt-4 border-t border-gray-700/50">
-                  {/* CONTATORE DINAMICO - NOVITÀ PRINCIPALE */}
+                  {/* CONTATORE DINAMICO */}
                   <div className="text-center mb-4">
                     <div className={`inline-flex items-center px-4 py-2 rounded-full border font-bold text-sm ${
                       activeTeams === totalTeams 
@@ -166,7 +180,7 @@ useEffect(() => {
                       </span>
                     </div>
                     
-                    {player.teams.some(team => team.eliminated && team.elimination_reason === 'Group stage elimination') && (
+                    {player.teams?.some(team => team.eliminated && team.elimination_reason === 'Group stage elimination') && (
                       <div className="flex justify-between">
                         <span className="text-gray-400">Eliminate ai gironi</span>
                         <span className="text-orange-400 font-bold">
@@ -175,7 +189,7 @@ useEffect(() => {
                       </div>
                     )}
                     
-                    {player.teams.some(team => team.eliminated && team.elimination_reason === 'Knockout stage defeat') && (
+                    {player.teams?.some(team => team.eliminated && team.elimination_reason === 'Knockout stage defeat') && (
                       <div className="flex justify-between">
                         <span className="text-gray-400">Eliminate ai playoff</span>
                         <span className="text-red-400 font-bold">
@@ -185,7 +199,7 @@ useEffect(() => {
                     )}
 
                     {/* Fallback per eliminazioni generiche */}
-                    {player.teams.some(team => team.eliminated && !team.elimination_reason) && (
+                    {player.teams?.some(team => team.eliminated && !team.elimination_reason) && (
                       <div className="flex justify-between">
                         <span className="text-gray-400">Eliminate</span>
                         <span className="text-gray-400 font-bold">

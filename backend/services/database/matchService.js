@@ -250,41 +250,45 @@ static async getFinishedMatches() {
   }
 }
 
-  // Get players' teams for easy lookup
-  static async getPlayersTeams() {
-    try {
-      const result = await query(`
-        SELECT 
-          p.name as player_name,
-          t.name as team_name,
-          COALESCE(t.eliminated, FALSE) as team_eliminated
-        FROM players p
-        JOIN player_teams pt ON p.id = pt.player_id
-        JOIN teams t ON pt.team_id = t.id
-        ORDER BY p.name, t.name
-      `);
-      
-      // Group by player
-      const playersTeams = {};
-      result.rows.forEach(row => {
-        if (!playersTeams[row.player_name]) {
-          playersTeams[row.player_name] = {
-            name: row.player_name,
-            teams: []
-          };
-        }
-        playersTeams[row.player_name].teams.push({
-          name: row.team_name,
-          eliminated: row.team_eliminated
+// Get players' teams for easy lookup
+static async getPlayersTeams() {
+  try {
+    const result = await query(`
+      SELECT 
+        p.name as player_name,
+        t.name as team_name,
+        COALESCE(t.eliminated, FALSE) as team_eliminated,
+        t.elimination_reason
+      FROM players p
+      JOIN player_teams pt ON p.id = pt.player_id
+      JOIN teams t ON pt.team_id = t.id
+      ORDER BY p.name, t.name
+    `);
+    
+    // Group by player nel formato corretto per il frontend
+    const playersMap = new Map();
+    
+    result.rows.forEach(row => {
+      if (!playersMap.has(row.player_name)) {
+        playersMap.set(row.player_name, {
+          name: row.player_name,
+          teams: []
         });
-      });
+      }
       
-      return Object.values(playersTeams);
-    } catch (error) {
-      console.error('❌ Error getting players teams:', error);
-      throw error;
-    }
+      playersMap.get(row.player_name).teams.push({
+        name: row.team_name,
+        eliminated: row.team_eliminated,
+        elimination_reason: row.elimination_reason
+      });
+    });
+    
+    return Array.from(playersMap.values());
+  } catch (error) {
+    console.error('❌ Error getting players teams:', error);
+    throw error;
   }
+}
 
 // SOSTITUISCI TUTTA LA FUNZIONE checkEliminatedTeams CON QUESTO:
 static async checkEliminatedTeams() {
