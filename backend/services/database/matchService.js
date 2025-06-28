@@ -34,9 +34,6 @@ export class MatchService {
     }
   }
 
-// backend/services/database/matchService.js - VERSIONE CORRETTA
-// Aggiungi questa funzione alla tua classe MatchService esistente
-
 // Get finished matches with results
 static async getFinishedMatches() {
   try {
@@ -47,23 +44,14 @@ static async getFinishedMatches() {
         m.match_date as date,
         ht.name as home,
         at.name as away,
-        COALESCE(
-          (SELECT p.name FROM player_teams pt JOIN players p ON pt.player_id = p.id WHERE pt.team_id = ht.id LIMIT 1), 
-          'N/A'
-        ) as homeowner,
-        COALESCE(
-          (SELECT p.name FROM player_teams pt JOIN players p ON pt.player_id = p.id WHERE pt.team_id = at.id LIMIT 1), 
-          'N/A'
-        ) as awayowner,
+        COALESCE(hp.name, 'N/A') as homeowner,
+        COALESCE(ap.name, 'N/A') as awayowner,
         m.home_goals,
         m.away_goals,
         m.status,
         m.is_knockout,
-        wt.name as winner_team,
-        COALESCE(
-          (SELECT p.name FROM player_teams pt JOIN players p ON pt.player_id = p.id WHERE pt.team_id = wt.id LIMIT 1), 
-          'N/A'
-        ) as winner_owner,
+        COALESCE(wt.name, '') as winner_team,
+        COALESCE(wp.name, 'N/A') as winner_owner,
         CASE 
           WHEN m.home_goals > m.away_goals THEN 'home'
           WHEN m.away_goals > m.home_goals THEN 'away'
@@ -74,12 +62,18 @@ static async getFinishedMatches() {
       FROM matches m
       JOIN teams ht ON m.home_team_id = ht.id
       JOIN teams at ON m.away_team_id = at.id
+      LEFT JOIN player_teams hpt ON ht.id = hpt.team_id
+      LEFT JOIN players hp ON hpt.player_id = hp.id
+      LEFT JOIN player_teams apt ON at.id = apt.team_id
+      LEFT JOIN players ap ON apt.player_id = ap.id
       LEFT JOIN teams wt ON m.winner_team_id = wt.id
+      LEFT JOIN player_teams wpt ON wt.id = wpt.team_id
+      LEFT JOIN players wp ON wpt.player_id = wp.id
       WHERE m.status = 'finished'
         AND m.home_goals IS NOT NULL 
         AND m.away_goals IS NOT NULL
       ORDER BY m.match_date DESC
-      LIMIT 50
+      LIMIT 500
     `);
     
     console.log(`🏆 Retrieved ${result.rows.length} finished matches`);
@@ -201,55 +195,6 @@ static async getFinishedMatches() {
     }
   }
 
-  static async getFinishedMatches() {
-  try {
-    const result = await query(`
-      SELECT DISTINCT
-        m.id,
-        m.external_id,
-        m.match_date as date,
-        ht.name as home,
-        at.name as away,
-        COALESCE(hp.name, 'N/A') as homeowner,
-        COALESCE(ap.name, 'N/A') as awayowner,
-        m.home_goals,
-        m.away_goals,
-        m.status,
-        m.is_knockout,
-        COALESCE(wt.name, '') as winner_team,
-        COALESCE(wp.name, 'N/A') as winner_owner,
-        CASE 
-          WHEN m.home_goals > m.away_goals THEN 'home'
-          WHEN m.away_goals > m.home_goals THEN 'away'
-          WHEN m.home_goals = m.away_goals AND m.winner_team_id = m.home_team_id THEN 'home'
-          WHEN m.home_goals = m.away_goals AND m.winner_team_id = m.away_team_id THEN 'away'
-          ELSE 'draw'
-        END as result_type
-      FROM matches m
-      JOIN teams ht ON m.home_team_id = ht.id
-      JOIN teams at ON m.away_team_id = at.id
-      LEFT JOIN player_teams hpt ON ht.id = hpt.team_id
-      LEFT JOIN players hp ON hpt.player_id = hp.id
-      LEFT JOIN player_teams apt ON at.id = apt.team_id
-      LEFT JOIN players ap ON apt.player_id = ap.id
-      LEFT JOIN teams wt ON m.winner_team_id = wt.id
-      LEFT JOIN player_teams wpt ON wt.id = wpt.team_id
-      LEFT JOIN players wp ON wpt.player_id = wp.id
-      WHERE m.status = 'finished'
-        AND m.home_goals IS NOT NULL 
-        AND m.away_goals IS NOT NULL
-      ORDER BY m.match_date DESC
-      LIMIT 500
-    `);
-    
-    console.log(`🏆 Retrieved ${result.rows.length} finished matches`);
-    return result.rows;
-  } catch (error) {
-    console.error('❌ Error getting finished matches:', error);
-    throw error;
-  }
-}
-
 // Get players' teams for easy lookup
 static async getPlayersTeams() {
   try {
@@ -290,123 +235,128 @@ static async getPlayersTeams() {
   }
 }
 
-// SOSTITUISCI TUTTA LA FUNZIONE checkEliminatedTeams CON QUESTO:
+// 🆕 NUOVO METODO: Elimina squadre dopo la fase a gironi (UNA SOLA VOLTA)
+static async eliminateGroupStageTeams(eliminatedTeamNames) {
+  try {
+    console.log('🏁 Starting group stage elimination process...');
+    console.log(`📋 Teams to eliminate: ${eliminatedTeamNames.length}`);
+    
+    // Controlla se l'eliminazione è già stata fatta
+    const alreadyEliminated = await query(`
+      SELECT COUNT(*) as count 
+      FROM teams 
+      WHERE eliminated = true 
+      AND elimination_reason = 'Group stage elimination'
+    `);
+    
+    if (parseInt(alreadyEliminated.rows[0].count) > 0) {
+      console.log('⚠️ Group stage elimination already completed');
+      return {
+        message: 'Group stage elimination already completed',
+        eliminatedCount: parseInt(alreadyEliminated.rows[0].count),
+        alreadyDone: true
+      };
+    }
+    
+    let eliminatedCount = 0;
+    let notFoundTeams = [];
+    
+    for (const teamName of eliminatedTeamNames) {
+      try {
+        // Cerca la squadra nel database (matching esatto)
+        const teamResult = await query(`
+          SELECT id, name FROM teams 
+          WHERE name = $1
+        `, [teamName]);
+        
+        if (teamResult.rows.length > 0) {
+          const team = teamResult.rows[0];
+          
+          // Elimina la squadra
+          await query(`
+            UPDATE teams 
+            SET eliminated = true,
+                elimination_date = NOW(),
+                elimination_reason = 'Group stage elimination'
+            WHERE id = $1
+          `, [team.id]);
+          
+          console.log(`❌ Team eliminated: ${team.name} (ID: ${team.id})`);
+          eliminatedCount++;
+          
+        } else {
+          console.warn(`⚠️ Team not found in database: ${teamName}`);
+          notFoundTeams.push(teamName);
+        }
+        
+      } catch (error) {
+        console.error(`❌ Error eliminating team ${teamName}:`, error.message);
+        notFoundTeams.push(teamName);
+      }
+    }
+    
+    // Aggiungi timestamp dell'operazione in system_settings
+    await query(`
+      INSERT INTO system_settings (key, value) 
+      VALUES ('group_stage_elimination_completed', $1)
+      ON CONFLICT (key) DO UPDATE SET 
+        value = EXCLUDED.value,
+        updated_at = CURRENT_TIMESTAMP
+    `, [new Date().toISOString()]);
+    
+    console.log(`✅ Group stage elimination completed:`);
+    console.log(`   - Teams eliminated: ${eliminatedCount}`);
+    console.log(`   - Teams not found: ${notFoundTeams.length}`);
+    
+    if (notFoundTeams.length > 0) {
+      console.log(`   - Missing teams: ${notFoundTeams.join(', ')}`);
+    }
+    
+    return {
+      eliminatedCount,
+      notFoundTeams,
+      totalRequested: eliminatedTeamNames.length,
+      completedAt: new Date().toISOString()
+    };
+    
+  } catch (error) {
+    console.error('❌ Error in group stage elimination:', error);
+    throw error;
+  }
+}
+
+// 🔄 METODO MODIFICATO: checkEliminatedTeams
 static async checkEliminatedTeams() {
   try {
     console.log('🔍 Starting team elimination check...');
     
-    // Determina in che fase del torneo siamo
-    const tournamentPhase = await this.getTournamentPhase();
-    console.log(`📊 Current tournament phase: ${tournamentPhase}`);
+    // Controlla se l'eliminazione post-gironi è già stata fatta
+    const groupStageElimination = await query(`
+      SELECT value FROM system_settings 
+      WHERE key = 'group_stage_elimination_completed'
+    `);
     
-    if (tournamentPhase === 'group_stage') {
-      // Fase a gironi: elimina solo se il torneo è finito
-      await this.eliminateAfterGroupStage();
-    } else if (tournamentPhase === 'knockout_stage') {
-      // Fase ad eliminazione: elimina chi perde nelle partite finite
+    const currentDate = new Date();
+    const knockoutStartDate = new Date('2025-06-28');
+    
+    // FASE 1: Eliminazione post-gironi (solo se non già fatta)
+    if (currentDate >= knockoutStartDate && !groupStageElimination.rows[0]) {
+      console.log('⚠️ Group stage elimination not yet performed');
+      console.log('💡 Use /api/admin/eliminate-group-stage-teams endpoint');
+    } else if (groupStageElimination.rows[0]) {
+      console.log(`✅ Group stage elimination already completed at: ${groupStageElimination.rows[0].value}`);
+    }
+    
+    // FASE 2: Eliminazioni knockout (sempre attive)
+    if (currentDate >= knockoutStartDate) {
+      console.log('⚔️ Checking knockout stage eliminations...');
       await this.eliminateKnockoutLosers();
     }
     
+    console.log('✅ Team elimination check completed');
+    
   } catch (error) {
-    console.error('❌ Error checking eliminated teams:', error);
-  }
-}
-
-// AGGIUNGI QUESTE 3 NUOVE FUNZIONI ALLA FINE DELLA CLASSE:
-
-// Nuovo metodo: determina la fase del torneo basandoti sulle date
-static async getTournamentPhase() {
-  try {
-    const currentDate = new Date();
-    const groupStageEndDate = new Date('2025-06-28'); // Il 28 giugno iniziano i playoff
-    
-    if (currentDate < groupStageEndDate) {
-      return 'group_stage';
-    }
-    
-    // Controlla se ci sono partite di eliminazione diretta programmate o finite
-    const knockoutMatches = await query(`
-      SELECT COUNT(*) as count 
-      FROM matches 
-      WHERE match_date >= $1
-      AND status IN ('scheduled', 'live', 'finished')
-    `, [groupStageEndDate]);
-    
-    if (parseInt(knockoutMatches.rows[0].count) > 0) {
-      return 'knockout_stage';
-    }
-    
-    return 'tournament_ended';
-  } catch (error) {
-    console.error('❌ Error determining tournament phase:', error);
-    return 'group_stage'; // Default safe
-  }
-}
-
-// Eliminazione dopo la fase a gironi
-static async eliminateAfterGroupStage() {
-  console.log('🏁 Checking eliminations after group stage...');
-  
-  // Solo dal 28 giugno in poi (dopo che le ultime partite del 27 sono finite)
-  const currentDate = new Date();
-  const knockoutStartDate = new Date('2025-06-28');
-  
-  if (currentDate < knockoutStartDate) {
-    console.log('📅 Group stage still ongoing - elimination check skipped');
-    return;
-  }
-  
-  // Verifica che TUTTE le partite dei gironi (fino al 27 giugno incluso) siano finite
-  const remainingGroupMatches = await query(`
-    SELECT COUNT(*) as count 
-    FROM matches 
-    WHERE match_date < $1
-    AND status IN ('scheduled', 'live')
-  `, [knockoutStartDate]);
-  
-  if (parseInt(remainingGroupMatches.rows[0].count) > 0) {
-    console.log('⏳ Group stage matches still pending, skipping elimination');
-    return;
-  }
-  
-  console.log('✅ Group stage completed (all matches before June 28th finished)');
-  
-  // Trova squadre che non hanno partite dal 28 giugno in poi (eliminate ai gironi)
-  const result = await query(`
-    SELECT DISTINCT t.id, t.name 
-    FROM teams t
-    WHERE COALESCE(t.eliminated, FALSE) = FALSE
-      AND t.id NOT IN (
-        -- Squadre che hanno partite dal 28 giugno in poi (qualificate ai playoff)
-        SELECT DISTINCT home_team_id FROM matches WHERE match_date >= $1
-        UNION
-        SELECT DISTINCT away_team_id FROM matches WHERE match_date >= $1
-      )
-      AND t.id IN (
-        -- Ma che hanno giocato almeno una partita nel torneo
-        SELECT DISTINCT home_team_id FROM matches WHERE status = 'finished'
-        UNION
-        SELECT DISTINCT away_team_id FROM matches WHERE status = 'finished'
-      )
-  `, [knockoutStartDate]);
-  
-  if (result.rows.length > 0) {
-    console.log(`🚫 Found ${result.rows.length} teams eliminated after group stage:`, 
-                result.rows.map(t => t.name));
-    
-    for (const team of result.rows) {
-      await query(`
-        UPDATE teams 
-        SET eliminated = TRUE, 
-            elimination_date = NOW(),
-            elimination_reason = 'Group stage elimination'
-        WHERE id = $1
-      `, [team.id]);
-      
-      console.log(`❌ Team eliminated (group stage): ${team.name}`);
-    }
-  } else {
-    console.log('✅ No teams eliminated after group stage');
+    console.error('❌ Error in elimination check:', error);
   }
 }
 

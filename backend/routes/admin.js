@@ -174,4 +174,106 @@ router.post("/reset-locks", async (req, res) => {
     });
   }
 }); 
+
+// ===================================================================
+// 1. MODIFICHE AL FILE: routes/admin.js
+// ===================================================================
+// AGGIUNGI QUESTI DUE ENDPOINT ALLA FINE DEL FILE (prima di export default router;)
+
+// Nuovo endpoint per eliminazione post-gironi (UNA SOLA VOLTA)
+router.post("/eliminate-group-stage-teams", async (req, res) => {
+  try {
+    console.log('🏁 Group stage elimination triggered via API...');
+    
+    // Importa MatchService
+    const { MatchService } = await import("../services/database/matchService.js");
+    
+    // Lista fissa delle squadre eliminate (nomi esatti dal database)
+    const eliminatedTeamNames = [
+      "Wydad AC",
+      "Urawa",
+      "Boca Juniors",
+      "Pachuca", 
+      "Red Bull Salzburg",
+      "Los Angeles FC",
+      "Auckland City",
+      "Al Ain",
+      "River Plate",
+      "FC Porto",
+      "Mamelodi Sundowns",
+      "Atletico Madrid",
+      "Ulsan Hyundai FC",
+      "ES Tunis",
+      "Al Ahly",
+      "Seattle Sounders"
+    ];
+    
+    const result = await MatchService.eliminateGroupStageTeams(eliminatedTeamNames);
+    
+    res.json({
+      success: true,
+      message: "🏁 Eliminazione post-gironi completata con successo!",
+      ...result,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error("❌ Group stage elimination failed:", error.message);
+    res.status(500).json({ 
+      success: false,
+      error: "❌ Errore durante l'eliminazione post-gironi",
+      details: error.message 
+    });
+  }
+});
+
+// Endpoint per controllare lo status eliminazioni
+router.get("/elimination-status", async (req, res) => {
+  try {
+    const { query } = await import("../db/connection.js");
+    
+    // Controlla se eliminazione post-gironi è completata
+    const groupStageResult = await query(`
+      SELECT value FROM system_settings 
+      WHERE key = 'group_stage_elimination_completed'
+    `);
+    
+    // Conta squadre eliminate per motivo
+    const eliminationStats = await query(`
+      SELECT 
+        elimination_reason,
+        COUNT(*) as count,
+        MIN(elimination_date) as first_elimination,
+        MAX(elimination_date) as last_elimination
+      FROM teams 
+      WHERE eliminated = true
+      GROUP BY elimination_reason
+    `);
+    
+    // Lista squadre eliminate
+    const eliminatedTeams = await query(`
+      SELECT name, elimination_reason, elimination_date
+      FROM teams 
+      WHERE eliminated = true
+      ORDER BY elimination_date, name
+    `);
+    
+    res.json({
+      groupStageCompleted: !!groupStageResult.rows[0],
+      groupStageCompletedAt: groupStageResult.rows[0]?.value || null,
+      eliminationStats: eliminationStats.rows,
+      eliminatedTeams: eliminatedTeams.rows,
+      totalEliminated: eliminatedTeams.rows.length,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error("❌ Error getting elimination status:", error.message);
+    res.status(500).json({ 
+      error: "Errore durante il recupero dello stato eliminazioni",
+      details: error.message 
+    });
+  }
+});
+
 export default router;

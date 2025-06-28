@@ -95,6 +95,17 @@ export class MatchUpdater {
       }
     }
 
+    // 🔄 MODIFICA: Controlla eliminazioni dopo aggiornamenti
+    if (newlyFinishedMatches > 0 || hasAnyUpdates) {
+      console.log(`🔍 Checking team eliminations...`);
+      try {
+        await MatchService.checkEliminatedTeams();
+        console.log('✅ Team elimination check completed');
+      } catch (error) {
+        console.error('❌ Error in elimination check:', error);
+      }
+    }
+
     // Recalculate leaderboard if we have any updates to finished matches
     // OR if we have newly finished matches
     if (newlyFinishedMatches > 0) {
@@ -111,7 +122,6 @@ export class MatchUpdater {
 
     // Update results timestamp
     await this.setLastResultsUpdateTime();
-    await MatchService.checkEliminatedTeams();
 
     console.log(`✅ Results update completed:`);
     console.log(`   - Updated results: ${updatedResults}`);
