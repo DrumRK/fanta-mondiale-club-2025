@@ -187,13 +187,32 @@ static async getFinishedMatches() {
 
   // Map API status to our status
   static mapApiStatus(apiStatus) {
-    switch (apiStatus) {
-      case 'FT': return 'finished';
-      case 'LIVE': case '1H': case '2H': case 'HT': return 'live';
-      case 'NS': case 'TBD': return 'scheduled';
-      default: return 'scheduled';
-    }
+  switch (apiStatus) {
+    // ✅ PARTITE FINITE
+    case 'FT':    // Full Time
+    case 'AET':   // After Extra Time  
+    case 'PEN':   // Penalties
+    case 'POST':  // Postponed
+    case 'CANC':  // Cancelled
+    case 'AWD':   // Awarded
+    case 'WO':    // Walkover
+      return 'finished';
+      
+    // ⚡ PARTITE LIVE
+    case 'LIVE': case '1H': case '2H': case 'HT': 
+    case 'ET': case 'BT': case 'P': case 'INT': case 'BREAK':
+      return 'live';
+      
+    // 📅 PARTITE PROGRAMMATE
+    case 'NS': case 'TBD': case 'SUSP':
+      return 'scheduled';
+      
+    // ❓ STATUS SCONOSCIUTI
+    default: 
+      console.warn(`⚠️ Unknown API status: ${apiStatus} - mapping to scheduled`);
+      return 'scheduled';
   }
+}
 
 // Get players' teams for easy lookup
 static async getPlayersTeams() {
@@ -365,8 +384,8 @@ static async eliminateKnockoutLosers() {
   console.log('⚔️ Checking knockout stage eliminations...');
   
   try {
-    // Trova tutte le partite di eliminazione diretta (dal 28 giugno in poi) appena finite
-    const knockoutStartDate = new Date('2025-06-28');
+    // 🆕 QUERY PIÙ PERMISSIVA - ultimi 5 giorni invece di 2
+    const knockoutStartDate = new Date('2025-06-27'); // Inizia dal 27 per sicurezza
     
     const recentKnockoutMatches = await query(`
       SELECT 
@@ -384,15 +403,20 @@ static async eliminateKnockoutLosers() {
       JOIN teams ht ON m.home_team_id = ht.id
       JOIN teams at ON m.away_team_id = at.id
       LEFT JOIN teams wt ON m.winner_team_id = wt.id
-      WHERE m.match_date >= $1  -- Partite dal 28 giugno in poi (knockout stage)
+      WHERE m.match_date >= $1  -- Dal 27 giugno in poi
         AND m.status = 'finished'
         AND m.home_goals IS NOT NULL 
         AND m.away_goals IS NOT NULL
-        -- Solo partite degli ultimi 2 giorni per evitare ri-elaborazioni
-        AND m.match_date >= NOW() - INTERVAL '2 days'
+        -- 🆕 FINESTRA PIÙ AMPIA - ultimi 5 giorni
+        AND m.match_date >= NOW() - INTERVAL '5 days'
     `, [knockoutStartDate]);
     
     console.log(`🔍 Found ${recentKnockoutMatches.rows.length} recent knockout matches to check`);
+    
+    // 🆕 DEBUG - Stampa tutte le partite trovate
+    recentKnockoutMatches.rows.forEach(match => {
+      console.log(`   🎯 ${match.home_team_name} ${match.home_goals}-${match.away_goals} ${match.away_team_name} (${match.match_date})`);
+    });
     
     for (const match of recentKnockoutMatches.rows) {
       let eliminatedTeamId = null;
@@ -400,11 +424,9 @@ static async eliminateKnockoutLosers() {
       
       // Determina chi è stato eliminato
       if (match.home_goals > match.away_goals) {
-        // Casa vince, ospite eliminato
         eliminatedTeamId = match.away_team_id;
         eliminatedTeamName = match.away_team_name;
       } else if (match.away_goals > match.home_goals) {
-        // Ospite vince, casa eliminata
         eliminatedTeamId = match.home_team_id;
         eliminatedTeamName = match.home_team_name;
       } else if (match.winner_team_id) {
@@ -434,6 +456,8 @@ static async eliminateKnockoutLosers() {
           `, [eliminatedTeamId]);
           
           console.log(`❌ Team eliminated (knockout): ${eliminatedTeamName} in match vs ${match.winner_team_name || 'opponent'}`);
+        } else {
+          console.log(`ℹ️ Team already eliminated: ${eliminatedTeamName}`);
         }
       }
     }

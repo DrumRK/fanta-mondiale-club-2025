@@ -276,4 +276,38 @@ router.get("/elimination-status", async (req, res) => {
   }
 });
 
+router.get("/debug-palmeiras-detailed", async (req, res) => {
+  try {
+    const { query } = await import("../db/connection.js");
+    
+    // Query più dettagliata
+    const matches = await query(`
+      SELECT 
+        m.*,
+        ht.name as home_name, 
+        at.name as away_name,
+        m.status as current_status,
+        m.home_goals,
+        m.away_goals,
+        m.match_date,
+        EXTRACT(EPOCH FROM (NOW() - m.match_date))/3600 as hours_since_match
+      FROM matches m
+      JOIN teams ht ON m.home_team_id = ht.id  
+      JOIN teams at ON m.away_team_id = at.id
+      WHERE (ht.name = 'Palmeiras' OR at.name = 'Palmeiras' OR ht.name = 'Botafogo' OR at.name = 'Botafogo')
+      AND m.match_date >= '2025-06-27'
+      ORDER BY m.match_date DESC
+    `);
+    
+    res.json({ 
+      matches: matches.rows,
+      currentTime: new Date(),
+      knockoutStart: new Date('2025-06-28'),
+      systemTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

@@ -209,27 +209,27 @@ static async hasFinishedMatches() {
     
     console.log('⚽ Fetching tournament matches with robust date range...');
     
-    // 🆕 FINESTRA MOLTO PIÙ AMPIA per non perdere nulla
+    // 🆕 FINESTRA ANCORA PIÙ AMPIA
     const today = new Date();
-    const fiveDaysAgo = new Date(today);
-    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
-    const threeDaysAhead = new Date(today);
-    threeDaysAhead.setDate(threeDaysAhead.getDate() + 3);
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const fiveDaysAhead = new Date(today);
+    fiveDaysAhead.setDate(fiveDaysAhead.getDate() + 5);
     
-    console.log(`📅 Fetching matches from ${fiveDaysAgo.toISOString().split('T')[0]} to ${threeDaysAhead.toISOString().split('T')[0]}`);
+    console.log(`📅 Fetching matches from ${sevenDaysAgo.toISOString().split('T')[0]} to ${fiveDaysAhead.toISOString().split('T')[0]}`);
     
     const response = await axios.get("https://api-football-v1.p.rapidapi.com/v3/fixtures", {
       params: { 
         league: 15, 
         season: 2025,
-        from: fiveDaysAgo.toISOString().split('T')[0],
-        to: threeDaysAhead.toISOString().split('T')[0]
+        from: sevenDaysAgo.toISOString().split('T')[0],
+        to: fiveDaysAhead.toISOString().split('T')[0]
       },
       headers: {
         "X-RapidAPI-Key": apiKey,
         "X-RapidAPI-Host": apiHost,
       },
-      timeout: 20000 // Timeout più lungo
+      timeout: 45000 // 🆕 TIMEOUT PIÙ LUNGO - 45 secondi
     });
 
     if (!response.data || !response.data.response) {
@@ -239,28 +239,27 @@ static async hasFinishedMatches() {
     const allMatches = response.data.response;
     console.log(`📊 Total matches received from API: ${allMatches.length}`);
 
-    // 🆕 FILTRO MOLTO PERMISSIVO - prendi quasi tutto quello che potrebbe essere rilevante
+    // 🆕 FILTRO ANCORA PIÙ PERMISSIVO
     const relevantMatches = allMatches.filter(match => {
       const status = match.fixture.status.short;
       const matchDate = new Date(match.fixture.date);
       const now = new Date();
-      const twoDaysAgo = new Date(now);
-      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+      const threeDaysAgo = new Date(now);
+      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
       
-      // Includi MOLTE più condizioni per non perdere nulla
       return (
-        // 🔴 Tutte le partite live (qualsiasi status che potrebbe essere live)
+        // Tutte le partite live
         ['LIVE', '1H', '2H', 'HT', 'ET', 'BT', 'P', 'INT', 'BREAK'].includes(status) ||
-        // 🏁 Partite finite negli ultimi 2 giorni
-        (status === 'FT' && matchDate >= twoDaysAgo) ||
-        // 📅 Partite programmate nei prossimi 2 giorni  
-        (['NS', 'TBD', 'CANC', 'PST', 'SUSP'].includes(status) && matchDate <= threeDaysAhead) ||
-        // 🚨 Qualsiasi altra partita di oggi (per sicurezza)
+        // Partite finite negli ultimi 3 giorni
+        (['FT', 'AET', 'PEN', 'POST', 'AWD', 'WO'].includes(status) && matchDate >= threeDaysAgo) ||
+        // Partite programmate nei prossimi 5 giorni  
+        (['NS', 'TBD', 'CANC', 'PST', 'SUSP'].includes(status) && matchDate <= fiveDaysAhead) ||
+        // Qualsiasi partita di oggi
         (matchDate.toDateString() === now.toDateString())
       );
     });
 
-    // 🆕 LOGGING DETTAGLIATO
+    // 🆕 LOGGING DETTAGLIATO CON NOMI SQUADRE
     const statusCounts = {};
     allMatches.forEach(match => {
       const status = match.fixture.status.short;
@@ -270,7 +269,7 @@ static async hasFinishedMatches() {
     console.log('📈 All status codes in API response:', statusCounts);
     console.log(`📊 Relevant matches after filtering: ${relevantMatches.length}`);
     
-    // Log delle partite rilevanti per debug
+    // 🆕 LOG TUTTE LE PARTITE RILEVANTI CON DETTAGLI
     relevantMatches.forEach(match => {
       console.log(`   🎯 ${match.teams.home.name} vs ${match.teams.away.name} - ${match.fixture.status.short} - ${match.fixture.date}`);
     });
@@ -282,7 +281,7 @@ static async hasFinishedMatches() {
       message: error.message,
       status: error.response?.status,
       statusText: error.response?.statusText,
-      data: error.response?.data
+      data: error.response?.data?.message || 'No error details'
     });
     
     this.handleAPIError(error, 'results');
