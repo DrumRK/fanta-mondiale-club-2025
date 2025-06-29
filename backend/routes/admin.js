@@ -310,4 +310,32 @@ router.get("/debug-palmeiras-detailed", async (req, res) => {
   }
 });
 
+router.get("/debug-api-status", async (req, res) => {
+  try {
+    const { MatchUpdater } = await import("../services/matchUpdater.js");
+    
+    console.log('🔧 Testing API status mapping...');
+    const apiMatches = await MatchUpdater.fetchResultsFromAPI();
+    
+    const statusCounts = {};
+    const statusExamples = {};
+    
+    apiMatches.forEach(match => {
+      const status = match.fixture.status.short;
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+      if (!statusExamples[status]) {
+        statusExamples[status] = `${match.teams.home.name} vs ${match.teams.away.name}`;
+      }
+    });
+    
+    res.json({ 
+      totalMatches: apiMatches.length,
+      statusCounts,
+      statusExamples
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
