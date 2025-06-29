@@ -338,4 +338,36 @@ router.get("/debug-api-status", async (req, res) => {
   }
 });
 
+router.get("/debug-all-recent-matches", async (req, res) => {
+  try {
+    const { query } = await import("../db/connection.js");
+    
+    const matches = await query(`
+      SELECT 
+        m.id,
+        m.external_id,
+        m.match_date,
+        ht.name as home, 
+        at.name as away,
+        m.status,
+        m.home_goals,
+        m.away_goals,
+        m.created_at
+      FROM matches m
+      JOIN teams ht ON m.home_team_id = ht.id  
+      JOIN teams at ON m.away_team_id = at.id
+      WHERE m.match_date >= '2025-06-28'
+      ORDER BY m.match_date ASC, m.created_at DESC
+    `);
+    
+    res.json({ 
+      totalMatches: matches.rows.length,
+      matches: matches.rows,
+      lastCreated: matches.rows[0]?.created_at
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
