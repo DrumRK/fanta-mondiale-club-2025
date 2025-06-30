@@ -108,17 +108,8 @@ export class MatchUpdater {
 
     // Recalculate leaderboard if we have any updates to finished matches
     // OR if we have newly finished matches
-    if (newlyFinishedMatches > 0) {
-      console.log(`🏆 Recalculating leaderboard due to ${newlyFinishedMatches} newly finished matches...`);
-      await LeaderboardService.recalculateLeaderboard();
-    } else if (hasAnyUpdates) {
-      // Check if any finished matches were updated (score corrections, etc.)
-      const hasFinishedMatches = await this.hasFinishedMatches();
-      if (hasFinishedMatches) {
-        console.log('🏆 Recalculating leaderboard due to updates in finished matches...');
-        await LeaderboardService.recalculateLeaderboard();
-      }
-    }
+    console.log('🏆 FORCE: Recalculating leaderboard with updated extra time logic...');
+await LeaderboardService.recalculateLeaderboard();
 
     // Update results timestamp
     await this.setLastResultsUpdateTime();

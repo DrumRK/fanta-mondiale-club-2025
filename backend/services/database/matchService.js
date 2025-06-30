@@ -118,47 +118,78 @@ static async getFinishedMatches() {
 
   // Save or update match from API data
   static async saveMatch(matchData) {
-    try {
-      // First, find or create teams
-      const homeTeam = await this.findOrCreateTeam(matchData.teams.home.name);
-      const awayTeam = await this.findOrCreateTeam(matchData.teams.away.name);
-      
-      let winnerTeamId = null;
-      if (matchData.teams.winner) {
-        const winnerTeam = await this.findOrCreateTeam(matchData.teams.winner.name);
-        winnerTeamId = winnerTeam.id;
-      }
-
-      const result = await query(`
-        INSERT INTO matches (
-          external_id, home_team_id, away_team_id, home_goals, away_goals, 
-          winner_team_id, match_date, status, is_knockout
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        ON CONFLICT (external_id) DO UPDATE SET
-          home_goals = EXCLUDED.home_goals,
-          away_goals = EXCLUDED.away_goals,
-          winner_team_id = EXCLUDED.winner_team_id,
-          status = EXCLUDED.status,
-          updated_at = CURRENT_TIMESTAMP
-        RETURNING *
-      `, [
-        matchData.fixture.id,
-        homeTeam.id,
-        awayTeam.id,
-        matchData.goals.home,
-        matchData.goals.away,
-        winnerTeamId,
-        new Date(matchData.fixture.date),
-        this.mapApiStatus(matchData.fixture.status.short),
-        !!matchData.score.penalty // true if penalties occurred
-      ]);
-
-      return result.rows[0];
-    } catch (error) {
-      console.error('❌ Error saving match:', error);
-      throw error;
+  try {
+    // TEMPORARY DEBUG: Log match data structure
+    console.log(`🔍 DEBUGGING: ${matchData.teams.home.name} vs ${matchData.teams.away.name}`);
+    console.log('   Status:', matchData.fixture.status.short);
+    console.log('   Score penalty:', matchData.score.penalty);
+    console.log('   Score extratime:', matchData.score.extratime);
+    console.log('   Full score object:', JSON.stringify(matchData.score, null, 2));
+    
+    // First, find or create teams
+    const homeTeam = await this.findOrCreateTeam(matchData.teams.home.name);
+    const awayTeam = await this.findOrCreateTeam(matchData.teams.away.name);
+   
+    let winnerTeamId = null;
+   
+    // First try to get winner from API
+    if (matchData.teams.winner) {
+      const winnerTeam = await this.findOrCreateTeam(matchData.teams.winner.name);
+      winnerTeamId = winnerTeam.id;
     }
+    // If no winner from API but match is finished, determine from score
+    else if (['FT', 'AET', 'PEN', 'POST', 'AWD', 'WO'].includes(matchData.fixture.status.short)) {
+     
+      const homeGoals = matchData.goals.home || 0;
+      const awayGoals = matchData.goals.away || 0;
+     
+      if (homeGoals > awayGoals) {
+        winnerTeamId = homeTeam.id;
+        console.log(`🏆 Winner determined from score: ${matchData.teams.home.name} (${homeGoals}-${awayGoals})`);
+      } else if (awayGoals > homeGoals) {
+        winnerTeamId = awayTeam.id;
+        console.log(`🏆 Winner determined from score: ${matchData.teams.away.name} (${awayGoals}-${homeGoals})`);
+      }
+      // For draws (homeGoals === awayGoals), winner stays null
+    }
+    
+    // SIMPLIFIED: Only actual extra time matches should be knockout
+    const isKnockout = matchData.fixture.status.short === 'AET' || 
+                       matchData.fixture.status.short === 'PEN';
+    
+    console.log(`   ✅ isKnockout determined as: ${isKnockout}`);
+    
+    const result = await query(`
+      INSERT INTO matches (
+        external_id, home_team_id, away_team_id, home_goals, away_goals,
+        winner_team_id, match_date, status, is_knockout
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      ON CONFLICT (external_id) DO UPDATE SET
+        home_goals = EXCLUDED.home_goals,
+        away_goals = EXCLUDED.away_goals,
+        winner_team_id = EXCLUDED.winner_team_id,
+        status = EXCLUDED.status,
+        is_knockout = EXCLUDED.is_knockout,
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING *
+    `, [
+      matchData.fixture.id,
+      homeTeam.id,
+      awayTeam.id,
+      matchData.goals.home,
+      matchData.goals.away,
+      winnerTeamId,
+      new Date(matchData.fixture.date),
+      this.mapApiStatus(matchData.fixture.status.short),
+      isKnockout
+    ]);
+    
+    return result.rows[0];
+  } catch (error) {
+    console.error('❌ Error saving match:', error);
+    throw error;
   }
+}
 
   // Find or create team by name
   static async findOrCreateTeam(teamName) {
